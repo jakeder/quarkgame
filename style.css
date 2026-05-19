@@ -1,0 +1,125 @@
+:root {
+  --bg: #0f1220;
+  --panel: #1a1f36;
+  --text: #e6e8ef;
+  --muted: #9aa0b4;
+  --accent: #6cc7ff;
+  --border: #2a3050;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+h1 { margin: 0 0 1rem; font-size: 1.8rem; }
+h2 { margin: 1.5rem 0 0.5rem; font-size: 1.2rem; }
+
+.muted { color: var(--muted); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+button {
+  background: var(--accent);
+  color: #0a0d1c;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.secondary { background: #2a3050; color: var(--text); }
+
+input, select {
+  background: #0a0d1c;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.name-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.name-row label { width: 6rem; }
+.name-row input { flex: 1; }
+
+.turn-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: baseline;
+}
+.turn-info .stat { color: var(--muted); }
+.turn-info .stat strong { color: var(--text); }
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 8rem;
+}
+
+.card {
+  width: 5rem;
+  height: 7rem;
+  border-radius: 6px;
+  background: #2a3050;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.25rem;
+  font-family: ui-monospace, monospace;
+}
+
+.card-symbol { font-size: 1.8rem; font-weight: 700; }
+.card-label  { font-size: 0.75rem; color: var(--muted); }
+.card-value  { font-size: 1rem; font-weight: 600; }
+
+.flavor-u { background: linear-gradient(160deg, #3a2a55, #1a1f36); }
+.flavor-d { background: linear-gradient(160deg, #2a4a55, #1a1f36); }
+.flavor-c { background: linear-gradient(160deg, #553a2a, #1a1f36); }
+.flavor-s { background: linear-gradient(160deg, #2a553a, #1a1f36); }
+.flavor-t { background: linear-gradient(160deg, #55402a, #1a1f36); }
+.flavor-b { background: linear-gradient(160deg, #402a55, #1a1f36); }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
+tr.active td { background: rgba(108, 199, 255, 0.08); }
+
+#pass-screen {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+#pass-text { font-size: 1.4rem; margin-bottom: 1.5rem; }

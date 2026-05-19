@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quark Deck</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Quark Deck</h1>
+
+    <section id="setup" class="panel">
+      <h2>New game</h2>
+      <div class="name-row">
+        <label for="player-count">Players</label>
+        <select id="player-count">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4" selected>4</option>
+        </select>
+      </div>
+      <div id="player-names"></div>
+      <button id="start">Start game</button>
+    </section>
+
+    <section id="pass-screen" class="panel" hidden>
+      <p id="pass-text"></p>
+      <button id="pass-continue">I'm ready</button>
+    </section>
+
+    <section id="game" class="panel" hidden>
+      <div class="turn-info">
+        <div><strong id="current-name"></strong>'s turn</div>
+        <div class="stat">Turn <strong id="turn-number"></strong></div>
+        <div class="stat">Deck: <strong id="deck-count"></strong></div>
+      </div>
+
+      <div class="actions">
+        <button id="draw-btn">Draw card</button>
+        <button id="end-turn-btn" class="secondary">End turn</button>
+      </div>
+
+      <h2>Your collected cards</h2>
+      <div id="collected" class="cards"></div>
+
+      <h2>Scores</h2>
+      <table>
+        <thead><tr><th>Player</th><th>Cards</th><th>Score</th></tr></thead>
+        <tbody id="scoreboard-body"></tbody>
+      </table>
+    </section>
+
+    <section id="game-over" class="panel" hidden>
+      <h2>Game over</h2>
+      <p id="winner-text"></p>
+      <table>
+        <thead><tr><th>Player</th><th>Cards</th><th>Score</th></tr></thead>
+        <tbody id="final-scoreboard-body"></tbody>
+      </table>
+      <div class="actions">
+        <button id="new-game">New game</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>
