@@ -3,22 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Quark Deck</title>
+  <title>Qwazy Quarks</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main>
-    <h1>Quark Deck</h1>
+    <h1>Qwazy Quarks</h1>
+    <p class="muted tagline">Build particles, atoms, and the coveted Helium-4. Pass-and-play.</p>
 
     <section id="setup" class="panel">
       <h2>New game</h2>
-      <div class="name-row">
+      <div class="setup-row">
         <label for="player-count">Players</label>
         <select id="player-count">
           <option value="2">2</option>
           <option value="3">3</option>
           <option value="4" selected>4</option>
         </select>
+      </div>
+      <div class="setup-row">
+        <label for="draw-size">Cards drawn per turn</label>
+        <input id="draw-size" type="number" min="1" max="6" value="3" />
+      </div>
+      <div class="setup-row">
+        <label for="max-rounds">Rounds</label>
+        <input id="max-rounds" type="number" min="3" max="20" value="10" />
       </div>
       <div id="player-names"></div>
       <button id="start">Start game</button>
@@ -30,32 +39,65 @@
     </section>
 
     <section id="game" class="panel" hidden>
-      <div class="turn-info">
+      <header class="turn-info">
         <div><strong id="current-name"></strong>'s turn</div>
-        <div class="stat">Turn <strong id="turn-number"></strong></div>
+        <div class="stat">Round <strong id="round-number"></strong> / <span id="max-rounds-display"></span></div>
         <div class="stat">Deck: <strong id="deck-count"></strong></div>
-      </div>
+        <div class="stat">Energy: <strong id="energy-display"></strong></div>
+        <div class="phase-chip" id="phase-chip"></div>
+      </header>
 
-      <div class="actions">
-        <button id="draw-btn">Draw card</button>
-        <button id="end-turn-btn" class="secondary">End turn</button>
-      </div>
+      <section class="hand-section">
+        <h2>Your hand <small class="muted" id="hand-info"></small></h2>
+        <div id="hand" class="cards"></div>
+      </section>
 
-      <h2>Your collected cards</h2>
-      <div id="collected" class="cards"></div>
+      <section class="synth-actions" id="synth-actions">
+        <button id="synth-particle-btn" disabled>Synthesize particle (need 3 cards)</button>
+        <span class="synth-divider">·</span>
+        <label class="electron-input">
+          Use electrons:
+          <input type="number" id="atom-electron-count" min="0" max="2" value="0" />
+        </label>
+        <button id="build-atom-btn" disabled>Build atom from selected particles</button>
+        <span class="synth-divider">·</span>
+        <button id="end-synth-btn" class="secondary">End synthesis →</button>
+      </section>
+      <div id="synth-error" class="error" hidden></div>
 
-      <h2>Scores</h2>
-      <table>
-        <thead><tr><th>Player</th><th>Cards</th><th>Score</th></tr></thead>
-        <tbody id="scoreboard-body"></tbody>
-      </table>
+      <section class="stockpile">
+        <h2>Your stockpile</h2>
+        <div class="leptons">
+          <span class="lepton-counter"><span class="lepton-glyph e-minus">e⁻</span> <strong id="electron-count">0</strong></span>
+          <span class="lepton-counter"><span class="lepton-glyph e-plus">e⁺</span> <strong id="positron-count">0</strong></span>
+        </div>
+        <h3>Free particles <small class="muted">(click to select for atom synthesis)</small></h3>
+        <div id="particles" class="tiles"></div>
+        <h3>Atoms</h3>
+        <div id="atoms" class="tiles"></div>
+      </section>
+
+      <section id="decays-section" class="panel-inset" hidden>
+        <h2>Decays</h2>
+        <div id="decay-log"></div>
+        <button id="end-turn-btn">End turn →</button>
+      </section>
+
+      <section class="scoreboard">
+        <h2>Scores</h2>
+        <table>
+          <thead><tr><th>Player</th><th>Energy</th><th>Atoms</th><th>Particles</th></tr></thead>
+          <tbody id="scoreboard-body"></tbody>
+        </table>
+      </section>
     </section>
 
     <section id="game-over" class="panel" hidden>
       <h2>Game over</h2>
       <p id="winner-text"></p>
+      <p class="muted" id="annihilation-text"></p>
       <table>
-        <thead><tr><th>Player</th><th>Cards</th><th>Score</th></tr></thead>
+        <thead><tr><th>Player</th><th>Energy</th><th>Atoms</th><th>Particles</th><th>e⁻/e⁺ annihilated</th></tr></thead>
         <tbody id="final-scoreboard-body"></tbody>
       </table>
       <div class="actions">
