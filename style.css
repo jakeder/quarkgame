@@ -117,6 +117,7 @@ input[type="number"] { width: 5rem; }
 }
 
 .card {
+  position: relative;
   width: 4.8rem;
   height: 6.4rem;
   border-radius: 8px;
@@ -130,23 +131,35 @@ input[type="number"] { width: 5rem; }
   cursor: pointer;
   user-select: none;
   font-family: ui-monospace, monospace;
-  transition: transform 0.08s ease, border-color 0.12s ease;
+  transition: transform 0.08s ease, box-shadow 0.12s ease;
 }
 .card:hover { transform: translateY(-2px); }
+/* Selection must NOT repaint the border — the border carries the QCD color
+   that players check for Gell-Mann's Gimmick. Use an offset ring instead. */
 .card.selected {
-  border-color: var(--selected);
-  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.25);
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 3px var(--selected);
 }
-.card.color-R { border-left: 6px solid var(--color-r); }
-.card.color-G { border-left: 6px solid var(--color-g); }
-.card.color-B { border-left: 6px solid var(--color-b); }
+/* QCD color owns the whole card frame + a corner letter */
+.card.color-R { border-color: var(--color-r); }
+.card.color-G { border-color: var(--color-g); }
+.card.color-B { border-color: var(--color-b); }
+.card::after {
+  position: absolute;
+  top: 0.25rem; right: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.card.color-R::after { content: "R"; color: var(--color-r); }
+.card.color-G::after { content: "G"; color: var(--color-g); }
+.card.color-B::after { content: "B"; color: var(--color-b); }
 .card.synthetic { opacity: 0.85; border-style: dashed; }
 
 .card-charge { font-size: 0.7rem; color: var(--muted); }
-.card-symbol { font-size: 1.8rem; font-weight: 700; }
+/* Flavor is the letter itself (u/d) — keep the glyph neutral so it never
+   reads as a card "color". */
+.card-symbol { font-size: 1.8rem; font-weight: 700; color: var(--text); }
 .card-spin   { font-size: 1.2rem; }
-.flavor-u .card-symbol { color: #b8d4ff; }
-.flavor-d .card-symbol { color: #ffd7a8; }
 
 .synth-actions {
   display: flex;
@@ -217,9 +230,9 @@ input[type="number"] { width: 5rem; }
   background: #161a30;
   border: 1px solid var(--border);
 }
-.mini-card.color-R { border-bottom: 2px solid var(--color-r); }
-.mini-card.color-G { border-bottom: 2px solid var(--color-g); }
-.mini-card.color-B { border-bottom: 2px solid var(--color-b); }
+.mini-card.color-R { border-color: var(--color-r); }
+.mini-card.color-G { border-color: var(--color-g); }
+.mini-card.color-B { border-color: var(--color-b); }
 
 .mini-particle {
   display: inline-block;
@@ -287,6 +300,9 @@ h1, .tagline, #setup, #pass-screen, #game-over {
   grid-template-columns: minmax(0, 1fr) 300px;
   column-gap: 1.25rem;
 }
+/* display:grid above would defeat the hidden attribute (author styles beat
+   the UA's [hidden] rule) — restore it explicitly. */
+#game.panel[hidden] { display: none; }
 #game.panel > * { grid-column: 1; min-width: 0; }
 #game.panel > .game-side {
   grid-column: 2;
