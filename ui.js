@@ -50,8 +50,100 @@
     clearSelections();
     document.getElementById('setup').hidden = true;
     document.getElementById('max-rounds-display').textContent = String(maxRounds);
+    renderRulesRef();
     render();
   }
+
+  // ---------- Recipe reference sidebar ----------
+
+  function renderRulesRef() {
+    const wrap = document.getElementById('rules-ref');
+    if (!wrap || wrap.dataset.rendered) return;
+    wrap.dataset.rendered = '1';
+
+    const particles = Q.PARTICLE_RULES.map(rule => {
+      const recipe = formatFlavorRecipe(rule.flavors);
+      const spin   = rule.spin === 'aligned' ? 'all same spin' : 'mixed spins';
+      return (
+        '<li class="ref-item">' +
+          '<div class="ref-head">' + escapeHtml(Q.PARTICLE_LABEL[rule.type]) + '</div>' +
+          '<div class="ref-line">' + recipe + ' · ' + spin + '</div>' +
+          '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + describeDecay(rule) + '</div>' +
+        '</li>'
+      );
+    }).join('');
+
+    const atoms = Q.ATOM_RULES.map(rule => {
+      const parts = [];
+      if (rule.protons)  parts.push(rule.protons + 'p');
+      if (rule.neutrons) parts.push(rule.neutrons + 'n');
+      const recipe = parts.join(' + ') + ' · ' + rule.electrons + ' e⁻';
+      const spinLbl = describeSpinSum(rule);
+      const stable = rule.stable ? 'stable' : 'unstable → ³He + e⁻';
+      return (
+        '<li class="ref-item">' +
+          '<div class="ref-head">' + escapeHtml(Q.ATOM_LABEL[rule.type]) + '</div>' +
+          '<div class="ref-line">' + recipe + (spinLbl ? ' · ' + spinLbl : '') + '</div>' +
+          '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + stable + '</div>' +
+        '</li>'
+      );
+    }).join('');
+
+    wrap.innerHTML =
+      '<h2>Reference</h2>' +
+      '<div class="ref-block">' +
+        '<h3>Particles</h3>' +
+        '<ul class="ref-list">' + particles + '</ul>' +
+      '</div>' +
+      '<div class="ref-block">' +
+        '<h3>Atoms</h3>' +
+        '<ul class="ref-list">' + atoms + '</ul>' +
+      '</div>' +
+      '<div class="ref-block">' +
+        '<h3>Rules</h3>' +
+        '<ul class="ref-rules">' +
+          '<li>Particles need <strong>1R + 1G + 1B</strong> (Gell-Mann’s Gimmick).</li>' +
+          '<li><strong>Mixed</strong> = at least one ↑ and one ↓. <strong>Aligned</strong> = all ↑ or all ↓.</li>' +
+          '<li>Unstable particles decay at turn end. Free neutrons get a Schrödinger’s Cat marker and decay at the end of your next turn.</li>' +
+          '<li>Tritium may be voluntarily decayed for ³He + e⁻.</li>' +
+          '<li>End of game: each e⁻ + e⁺ pair annihilates for ' + Q.formatEnergy(Q.ANNIHILATION_ENERGY) + '.</li>' +
+        '</ul>' +
+      '</div>';
+  }
+
+  function formatFlavorRecipe(flavors) {
+    const parts = [];
+    if (flavors.u) parts.push(flavors.u + 'u');
+    if (flavors.d) parts.push(flavors.d + 'd');
+    return parts.join(' + ');
+  }
+
+  function describeDecay(rule) {
+    if (rule.stable) return 'stable';
+    if (!rule.decay) return 'unstable';
+    const out = ['→ p⁺'];
+    if (rule.decay.electrons === 1) out.push('+ e⁻');
+    else if (rule.decay.electrons > 1) out.push('+ ' + rule.decay.electrons + ' e⁻');
+    if (rule.decay.positrons === 1) out.push('+ e⁺');
+    else if (rule.decay.positrons > 1) out.push('+ ' + rule.decay.positrons + ' e⁺');
+    if (rule.decay.delayed) out.push('(delayed)');
+    return out.join(' ');
+  }
+
+  function describeSpinSum(rule) {
+    // Probe spinSumCheck across the plausible integer range so the sidebar
+    // stays in sync with the rules engine.
+    const valid = [];
+    for (let s = -12; s <= 12; s++) {
+      if (rule.spinSumCheck(s)) valid.push(s);
+    }
+    if (valid.length >= 25) return ''; // unconstrained (H)
+    if (valid.length === 1) return 'spin sum = ' + signed(valid[0]);
+    if (valid.length === 2 && valid[0] === -valid[1]) return 'spin sum = ±' + valid[1];
+    return 'spin sum ∈ {' + valid.map(signed).join(', ') + '}';
+  }
+
+  function signed(n) { return n > 0 ? '+' + n : String(n); }
 
   function clampInt(v, lo, hi, fallback) {
     const n = parseInt(v, 10);

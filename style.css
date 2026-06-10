@@ -271,3 +271,94 @@ tr.active td { background: rgba(108, 199, 255, 0.08); }
 #pass-text { font-size: 1.4rem; margin-bottom: 1.5rem; }
 
 .actions { display: flex; gap: 0.5rem; margin: 1rem 0; }
+
+/* ── Rules reference sidebar ── */
+/* The in-game view widens so the sidebar doesn't squeeze the board;
+   reading-width screens stay at 1100px. */
+main { max-width: 1340px; }
+h1, .tagline, #setup, #pass-screen, #game-over {
+  max-width: 1068px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#game.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  column-gap: 1.25rem;
+}
+#game.panel > * { grid-column: 1; min-width: 0; }
+#game.panel > .game-side {
+  grid-column: 2;
+  grid-row: 1 / 99; /* span all content rows; -1 only reaches the explicit grid */
+}
+
+.game-side {
+  background: var(--panel-inset);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  align-self: start;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.game-side h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+.ref-block + .ref-block { margin-top: 0.9rem; }
+.ref-block h3 {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ref-list, .ref-rules {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ref-item {
+  padding: 0.4rem 0.55rem;
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  border-radius: 0 4px 4px 0;
+}
+.ref-head { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.1rem; }
+.ref-line {
+  font-size: 0.78rem;
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  line-height: 1.45;
+}
+.ref-line.ref-energy { color: var(--muted); }
+
+.ref-rules li {
+  font-size: 0.8rem;
+  color: var(--text);
+  line-height: 1.45;
+  padding-left: 0.9rem;
+  position: relative;
+}
+.ref-rules li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+.ref-rules strong { color: var(--selected); font-weight: 600; }
+
+@media (max-width: 1080px) {
+  #game.panel { grid-template-columns: 1fr; }
+  #game.panel > .game-side {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+    max-height: none;
+    margin-top: 1rem;
+  }
+}
