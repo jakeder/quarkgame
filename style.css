@@ -553,9 +553,9 @@ h1, .tagline, #setup, #pass-screen, #game-over {
   box-shadow: 0 0 14px rgba(108, 199, 255, 0.18);
 }
 .turn-banner.waiting {
-  background: var(--panel-inset);
-  border-color: var(--border);
-  color: var(--muted);
+  background: rgba(255, 209, 102, 0.12);
+  border-color: var(--selected);
+  color: var(--selected);
 }
 .turn-banner.local-turn {
   background: var(--panel-inset);

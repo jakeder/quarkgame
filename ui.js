@@ -347,7 +347,7 @@
       } else {
         banner.className = 'turn-banner waiting';
         banner.innerHTML = '<span class="banner-dot pulse"></span>Waiting for ' +
-          escapeHtml(currentP.name) + '…';
+          escapeHtml(currentP.name) + ' to ' + escapeHtml(phaseWord) + '…';
       }
     } else {
       // Pass-and-play: whoever is at the device is the active player.
@@ -480,7 +480,6 @@
 
     renderTurnBanner(currentP);
     document.getElementById('game').classList.toggle('waiting', online && !isMyTurn());
-    document.getElementById('current-name').textContent = currentP.name;
     document.getElementById('round-number').textContent = state.round;
     document.getElementById('max-rounds-display').textContent = state.config.maxRounds;
     document.getElementById('deck-count').textContent = state.deck.length;
