@@ -1,3 +1,13 @@
 # Personal Firebase credentials — copy firebase-config.example.js to
 # firebase-config.js and fill in your project's values.
 firebase-config.js
+
+# Firebase CLI per-user project mapping (created by `firebase use --add`).
+# Each contributor points the repo at their own project — don't share.
+.firebaserc
+
+# Firebase CLI local cache / logs
+.firebase/
+firebase-debug.log
+*-debug.log
+node_modules/

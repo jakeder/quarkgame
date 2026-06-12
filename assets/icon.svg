@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Full-bleed background so the icon works as a maskable PWA icon -->
+  <rect width="512" height="512" fill="#0f1220"/>
+  <!-- Atom: orbital rings + nucleus, in the app's cyan accent. Kept within the
+       central ~70% so it survives maskable safe-area cropping. -->
+  <g transform="translate(256 256)" fill="none" stroke="#6cc7ff" stroke-width="10">
+    <ellipse rx="150" ry="60"/>
+    <ellipse rx="150" ry="60" transform="rotate(60)"/>
+    <ellipse rx="150" ry="60" transform="rotate(120)"/>
+  </g>
+  <g transform="translate(256 256)" fill="#6cc7ff">
+    <circle r="26"/>
+    <!-- three quark dots riding the rings -->
+    <circle cx="0"    cy="-150" r="16"/>
+    <circle cx="130"  cy="75"   r="16"/>
+    <circle cx="-130" cy="75"   r="16"/>
+  </g>
+</svg>
