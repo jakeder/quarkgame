@@ -145,6 +145,10 @@
 
   function signed(n) { return n > 0 ? '+' + n : String(n); }
 
+  function particleSpinSum(particle) {
+    return particle.cards.reduce((sum, c) => sum + (c.spin === 'up' ? 1 : -1), 0);
+  }
+
   function clampInt(v, lo, hi, fallback) {
     const n = parseInt(v, 10);
     if (Number.isNaN(n)) return fallback;
@@ -303,7 +307,8 @@
       (particle.catMarker ? ' <span class="cat" title="Schrödinger\'s Cat: decays at end of your next turn">🐈‍⬛</span>' : '') +
       '</div>' +
       '<div class="tile-cards">' + cards + '</div>' +
-      '<div class="tile-energy">' + Q.formatEnergy(rule.energy) + '</div>';
+      '<div class="tile-energy">' + Q.formatEnergy(rule.energy) +
+        ' · spin ' + signed(particleSpinSum(particle)) + '</div>';
     return el;
   }
 
