@@ -103,12 +103,12 @@ async function init() {
   async function startRoom(code, initialState) {
     await update(ref(db, `rooms/${code}`), {
       started: true,
-      state: initialState,
+      state: JSON.stringify(initialState),
     });
   }
 
   async function writeState(code, state) {
-    await set(ref(db, `rooms/${code}/state`), state);
+    await set(ref(db, `rooms/${code}/state`), JSON.stringify(state));
   }
 
   api = {

@@ -109,6 +109,14 @@
   function onRoomUpdate(room) {
     if (!online || !room) return;
     online.lastRoom = room;
+    if (room.started && room.state) {
+      enterOnlineGame(room.state);
+    } else {
+      renderLobbyView(room);
+    }
+  }
+
+  function renderLobbyView(room) {
     const players = room.players || {};
     const list = document.getElementById('lobby-players');
     list.innerHTML = '';
@@ -125,24 +133,57 @@
         list.appendChild(li);
       });
     document.getElementById('lobby-start').disabled = Object.keys(players).length < 2;
-    if (room.started) {
-      // Phase 2 will boot the game state here. For now, show a notice.
-      document.getElementById('lobby-host-note').hidden = false;
-      document.getElementById('lobby-host-note').textContent =
-        'Game started — in-game sync coming next. Watch this branch.';
+  }
+
+  function enterOnlineGame(stateJson) {
+    let next;
+    try {
+      next = typeof stateJson === 'string' ? JSON.parse(stateJson) : stateJson;
+    } catch (e) {
+      console.error('Failed to parse room state:', e);
+      return;
     }
+    state = next;
+    document.getElementById('setup').hidden = true;
+    document.getElementById('lobby').hidden = true;
+    passScreenAcknowledged = true; // no pass screen in online play
+    clearSelections();
+    renderRulesRef();
+    render();
   }
 
   async function onStartRoom() {
     if (!online || !online.isHost || !online.lastRoom) return;
-    const players = online.lastRoom.players || {};
-    const names = Object.entries(players)
-      .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))
-      .map(([, p]) => p.name);
+    const sortedPlayers = Object.entries(online.lastRoom.players || {})
+      .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
+    const names = sortedPlayers.map(([, p]) => p.name);
+    const uids  = sortedPlayers.map(([uid]) => uid);
     if (names.length < 2) return;
     const mp = await window.MultiplayerReady;
     const initial = Q.createGame(names, online.hostConfig || {});
+    // Stamp player uids so every client can identify itself in the synced state.
+    initial.players.forEach((p, i) => { p.uid = uids[i]; });
     await mp.startRoom(online.code, initial);
+  }
+
+  // ---------- Online helpers ----------
+  function isOnline() { return !!online; }
+  function localPlayerIndex() {
+    if (!online || !state || !state.players) return -1;
+    return state.players.findIndex(p => p.uid === online.uid);
+  }
+  function isMyTurn() {
+    if (!online) return true;
+    return state && state.currentPlayer === localPlayerIndex();
+  }
+  async function syncState() {
+    if (!online) return;
+    try {
+      const mp = await window.MultiplayerReady;
+      await mp.writeState(online.code, state);
+    } catch (e) {
+      showSynthError('Sync failed: ' + (e.message || e));
+    }
   }
 
   async function onLeaveRoom() {
@@ -358,7 +399,8 @@
   function render() {
     if (!state) return;
     const gameOver = state.phase === 'over';
-    const passNeeded = !passScreenAcknowledged && state.phase === 'between';
+    // Online mode skips the pass screen — there's no device handoff.
+    const passNeeded = !online && !passScreenAcknowledged && state.phase === 'between';
     document.getElementById('game').hidden       = gameOver || passNeeded;
     document.getElementById('pass-screen').hidden = !passNeeded;
     document.getElementById('game-over').hidden  = !gameOver;
@@ -407,8 +449,14 @@
   // ---------- Turn screen ----------
 
   function renderTurn() {
-    const p = Q.currentPlayer(state);
-    document.getElementById('current-name').textContent = p.name;
+    const currentP = Q.currentPlayer(state);
+    // In online play, each client always sees its own hand/stockpile, even
+    // when the active turn belongs to someone else.
+    const localIdx = online ? localPlayerIndex() : state.currentPlayer;
+    const viewP = (localIdx >= 0 && state.players[localIdx]) ? state.players[localIdx] : currentP;
+
+    document.getElementById('current-name').textContent =
+      currentP.name + (online && isMyTurn() ? ' (you)' : '');
     document.getElementById('round-number').textContent = state.round;
     document.getElementById('max-rounds-display').textContent = state.config.maxRounds;
     document.getElementById('deck-count').textContent = state.deck.length;
@@ -417,10 +465,10 @@
     chip.textContent = state.phase === 'synthesize' ? 'Synthesize' : 'Decays';
     chip.className = 'phase-chip phase-' + state.phase;
 
-    renderHand(p);
-    renderStockpile(p);
+    renderHand(viewP);
+    renderStockpile(viewP);
     renderDecays();
-    renderEnergyLedger(p);
+    renderEnergyLedger(viewP);
     updateActionButtons();
 
     const synthing = state.phase === 'synthesize';
@@ -441,6 +489,7 @@
       const el = renderCard(card, selectedHandCards.has(card.id));
       el.addEventListener('click', () => {
         if (state.phase !== 'synthesize') return;
+        if (!isMyTurn()) return;
         if (selectedHandCards.has(card.id)) selectedHandCards.delete(card.id);
         else selectedHandCards.add(card.id);
         renderHand(player);
@@ -480,6 +529,7 @@
       const tile = renderParticleTile(particle);
       tile.addEventListener('click', () => {
         if (state.phase !== 'synthesize') return;
+        if (!isMyTurn()) return;
         if (selectedParticles.has(particle.id)) selectedParticles.delete(particle.id);
         else selectedParticles.add(particle.id);
         renderParticles(player);
@@ -539,10 +589,12 @@
       const btn = document.createElement('button');
       btn.className = 'tritium-decay';
       btn.textContent = 'Decay (→ He-3 + e⁻)';
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (!isMyTurn()) return showSynthError("It's not your turn.");
         const r = Q.decayTritium(state, atom.id);
         if (!r.ok) return showSynthError(r.error);
+        if (online) { await syncState(); return; }
         render();
       });
       el.appendChild(btn);
@@ -584,27 +636,31 @@
     const synthBtn = document.getElementById('synth-particle-btn');
     const atomBtn = document.getElementById('build-atom-btn');
     const synthing = state && state.phase === 'synthesize';
-    synthBtn.disabled = !synthing || selectedHandCards.size !== 3;
+    const myTurn = isMyTurn();
+    synthBtn.disabled = !synthing || !myTurn || selectedHandCards.size !== 3;
     synthBtn.textContent = selectedHandCards.size === 3
       ? 'Synthesize particle from 3 selected cards'
       : 'Synthesize particle (need 3 cards, ' + selectedHandCards.size + ' selected)';
-    atomBtn.disabled = !synthing || selectedParticles.size === 0;
+    atomBtn.disabled = !synthing || !myTurn || selectedParticles.size === 0;
     atomBtn.textContent = selectedParticles.size === 0
       ? 'Build atom from selected particles'
       : 'Build atom from ' + selectedParticles.size + ' particle' + (selectedParticles.size === 1 ? '' : 's');
-    document.getElementById('end-synth-btn').disabled = !synthing;
+    document.getElementById('end-synth-btn').disabled = !synthing || !myTurn;
+    document.getElementById('end-turn-btn').disabled = !myTurn;
   }
 
-  function onSynthParticle() {
+  async function onSynthParticle() {
+    if (!isMyTurn()) return showSynthError("It's not your turn.");
     const ids = Array.from(selectedHandCards);
     const r = Q.synthesizeParticle(state, ids);
     if (!r.ok) return showSynthError(r.error);
     hideSynthError();
     selectedHandCards.clear();
-    render();
+    if (online) await syncState(); else render();
   }
 
-  function onBuildAtom() {
+  async function onBuildAtom() {
+    if (!isMyTurn()) return showSynthError("It's not your turn.");
     const ids = Array.from(selectedParticles);
     const electrons = clampInt(document.getElementById('atom-electron-count').value, 0, 4, 0);
     const r = Q.synthesizeAtom(state, ids, electrons);
@@ -612,21 +668,31 @@
     hideSynthError();
     selectedParticles.clear();
     document.getElementById('atom-electron-count').value = '0';
-    render();
+    if (online) await syncState(); else render();
   }
 
-  function onEndSynthesis() {
+  async function onEndSynthesis() {
+    if (!isMyTurn()) return;
     Q.endSynthesis(state);
     clearSelections();
-    render();
+    if (online) await syncState(); else render();
   }
 
-  function onEndTurn() {
+  async function onEndTurn() {
+    if (!isMyTurn()) return;
     const r = Q.endTurn(state);
     if (!r.ok) return;
-    passScreenAcknowledged = (state.phase === 'over'); // skip pass screen when game ends
-    clearSelections();
-    render();
+    if (online) {
+      // No device handoff online — fold the next player's beginTurn into the
+      // same write so the next client wakes up with cards already in hand.
+      if (state.phase === 'between') Q.beginTurn(state);
+      clearSelections();
+      await syncState();
+    } else {
+      passScreenAcknowledged = (state.phase === 'over'); // skip pass screen when game ends
+      clearSelections();
+      render();
+    }
   }
 
   function showSynthError(msg) {
