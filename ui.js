@@ -165,7 +165,7 @@
     const total = Q.formatEnergy(player.energy);
     const [num, unit] = total.split(' ');
     wrap.innerHTML =
-      '<h2>Energy ledger</h2>' +
+      '<h2>Binding Energy</h2>' +
       '<div class="ledger-total tabular">' + num +
         '<span class="ledger-unit">' + (unit || '') + '</span>' +
       '</div>' +
