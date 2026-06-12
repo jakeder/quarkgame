@@ -1,0 +1,19 @@
+{
+  "name": "Qwazy Quarks",
+  "short_name": "Qwazy Quarks",
+  "description": "Build particles, atoms, and the coveted Helium-4. A pass-and-play and online deck game.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1220",
+  "theme_color": "#0f1220",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

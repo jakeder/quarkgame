@@ -1,3 +1,9 @@
 # Personal Firebase credentials — copy firebase-config.example.js to
 # firebase-config.js and fill in your project's values.
 firebase-config.js
+
+# Firebase CLI local cache / logs
+.firebase/
+firebase-debug.log
+*-debug.log
+node_modules/

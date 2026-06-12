@@ -14,23 +14,30 @@ import {
 
 let api = null;
 
-async function init() {
-  let cfg;
+// Resolve the Firebase config from one of two sources:
+//   1. ./firebase-config.js  (local dev — gitignored, you create it)
+//   2. /__/firebase/init.json (auto-served by Firebase Hosting when the app
+//      is deployed on the same Firebase project — no config file needed)
+async function loadConfig() {
   try {
     const mod = await import('./firebase-config.js');
-    cfg = mod.firebaseConfig;
-    if (!cfg) {
-      api = { ready: false, error: 'firebase-config.js loaded but did not `export const firebaseConfig = {...}`. Check that the file starts with `export const firebaseConfig = `.' };
-      window.Multiplayer = api;
-      return api;
-    }
-  } catch (err) {
-    // Most common cause is the file not being at /firebase-config.js relative
-    // to the page (often: file:// open, file in wrong folder, or a syntax
-    // error inside the file). Surface the real error message.
-    const detail = err && err.message ? err.message : String(err);
-    console.error('[multiplayer] firebase-config.js import failed:', err);
-    api = { ready: false, error: 'Could not load firebase-config.js: ' + detail + ' — check the browser console for the underlying network/syntax error.' };
+    if (mod && mod.firebaseConfig) return mod.firebaseConfig;
+  } catch (_) {
+    // No local config file — fall through to the Hosting-provided one.
+  }
+  try {
+    const res = await fetch('/__/firebase/init.json');
+    if (res.ok) return await res.json();
+  } catch (_) {
+    // Not on Firebase Hosting (or offline) — nothing more to try.
+  }
+  return null;
+}
+
+async function init() {
+  const cfg = await loadConfig();
+  if (!cfg) {
+    api = { ready: false, error: 'No Firebase config found. For local dev, copy firebase-config.example.js to firebase-config.js and fill it in. When deployed on Firebase Hosting this is automatic.' };
     window.Multiplayer = api;
     return api;
   }
