@@ -222,6 +222,15 @@ input[type="number"] { width: 5rem; }
   border-color: var(--selected);
   box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.25);
 }
+/* Unstable marker: outline (not border) so it stacks with selection feedback. */
+.tile.unstable {
+  outline: 1.5px solid var(--error);
+  outline-offset: 1px;
+}
+.ref-item.unstable {
+  outline: 1.5px solid var(--error);
+  outline-offset: -1px;
+}
 .tile-head { font-size: 0.95rem; display: flex; align-items: center; gap: 0.35rem; }
 .tile-cards, .tile-particles { display: flex; flex-wrap: wrap; gap: 0.3rem; font-family: ui-monospace, monospace; }
 .tile-energy { font-size: 0.8rem; color: var(--muted); }

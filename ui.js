@@ -65,7 +65,7 @@
       const recipe = formatFlavorRecipe(rule.flavors);
       const spin   = rule.spin === 'aligned' ? 'all same spin' : 'mixed spins';
       return (
-        '<li class="ref-item">' +
+        '<li class="ref-item' + (rule.stable ? '' : ' unstable') + '">' +
           '<div class="ref-head">' + escapeHtml(Q.PARTICLE_LABEL[rule.type]) + '</div>' +
           '<div class="ref-line">' + recipe + ' · ' + spin + '</div>' +
           '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + describeDecay(rule) + '</div>' +
@@ -81,7 +81,7 @@
       const spinLbl = describeSpinSum(rule);
       const stable = rule.stable ? 'stable' : 'unstable → ³He + e⁻';
       return (
-        '<li class="ref-item">' +
+        '<li class="ref-item' + (rule.stable ? '' : ' unstable') + '">' +
           '<div class="ref-head">' + escapeHtml(Q.ATOM_LABEL[rule.type]) + '</div>' +
           '<div class="ref-line">' + recipe + (spinLbl ? ' · ' + spinLbl : '') + '</div>' +
           '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + stable + '</div>' +
@@ -292,7 +292,8 @@
     const el = document.createElement('div');
     const rule = Q.PARTICLE_RULES.find(r => r.type === particle.type);
     el.className = 'tile particle ' + particle.type.replace(/[+\-]/g, '-')
-      + (selected ? ' selected' : '') + (particle.synthetic ? ' synthetic' : '');
+      + (selected ? ' selected' : '') + (particle.synthetic ? ' synthetic' : '')
+      + (rule && !rule.stable ? ' unstable' : '');
     const cards = particle.cards.map(c =>
       '<span class="mini-card flavor-' + c.flavor + ' color-' + c.color + '">' +
       c.flavor + Q.SPIN_GLYPH[c.spin] + '</span>'
@@ -320,7 +321,9 @@
 
   function renderAtomTile(atom) {
     const el = document.createElement('div');
-    el.className = 'tile atom atom-' + atom.type;
+    const rule = Q.ATOM_RULES.find(r => r.type === atom.type);
+    el.className = 'tile atom atom-' + atom.type +
+      (rule && !rule.stable ? ' unstable' : '');
     const parts = atom.particles.map(p =>
       '<span class="mini-particle">' + (p.type === 'proton' ? 'p⁺' : 'n⁰') + '</span>'
     ).join('');
