@@ -20,6 +20,150 @@
 
   renderNameInputs();
 
+  // ---------- Online lobby wiring ----------
+  let online = null; // { code, uid, isHost, unsubscribe, lastRoom }
+
+  document.querySelectorAll('.mode-tab').forEach(btn => {
+    btn.addEventListener('click', () => setSetupMode(btn.dataset.mode));
+  });
+  document.querySelectorAll('.sub-tab').forEach(btn => {
+    btn.addEventListener('click', () => setOnlineSubTab(btn.dataset.sub));
+  });
+  document.getElementById('create-room-btn').addEventListener('click', onCreateRoom);
+  document.getElementById('join-room-btn').addEventListener('click', onJoinRoom);
+  document.getElementById('lobby-start').addEventListener('click', onStartRoom);
+  document.getElementById('lobby-leave').addEventListener('click', onLeaveRoom);
+
+  function setSetupMode(mode) {
+    document.querySelectorAll('.mode-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+    document.getElementById('setup-local').hidden = mode !== 'local';
+    document.getElementById('setup-online').hidden = mode !== 'online';
+    if (mode === 'online') checkOnlineReady();
+  }
+
+  function setOnlineSubTab(sub) {
+    document.querySelectorAll('.sub-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.sub === sub));
+    document.getElementById('online-create').hidden = sub !== 'create';
+    document.getElementById('online-join').hidden = sub !== 'join';
+    hideOnlineError();
+  }
+
+  async function checkOnlineReady() {
+    const status = document.getElementById('online-status');
+    status.textContent = 'Connecting to Firebase…';
+    const mp = await window.MultiplayerReady;
+    if (!mp.ready) {
+      status.textContent = mp.error || 'Online play unavailable.';
+      status.classList.add('error');
+      return false;
+    }
+    status.textContent = '';
+    status.classList.remove('error');
+    return true;
+  }
+
+  async function onCreateRoom() {
+    hideOnlineError();
+    const name = (document.getElementById('online-host-name').value || '').trim() || 'Host';
+    const drawSize  = clampInt(document.getElementById('online-draw-size').value, 1, 10, 3);
+    const maxRounds = clampInt(document.getElementById('online-max-rounds').value, 3, 20, 10);
+    const mp = await window.MultiplayerReady;
+    if (!mp.ready) return showOnlineError(mp.error);
+    try {
+      const { code, uid } = await mp.createRoom(name);
+      enterLobby(code, uid, true, { drawSize, maxRounds });
+    } catch (e) {
+      showOnlineError(e.message || String(e));
+    }
+  }
+
+  async function onJoinRoom() {
+    hideOnlineError();
+    const code = (document.getElementById('online-room-code').value || '').toUpperCase().trim();
+    const name = (document.getElementById('online-join-name').value || '').trim() || 'Player';
+    if (!code) return showOnlineError('Enter a room code.');
+    const mp = await window.MultiplayerReady;
+    if (!mp.ready) return showOnlineError(mp.error);
+    try {
+      const result = await mp.joinRoom(code, name);
+      enterLobby(result.code, result.uid, false, null);
+    } catch (e) {
+      showOnlineError(e.message || String(e));
+    }
+  }
+
+  function enterLobby(code, uid, isHost, hostConfig) {
+    online = { code, uid, isHost, hostConfig, unsubscribe: null, lastRoom: null };
+    document.getElementById('setup').hidden = true;
+    document.getElementById('lobby').hidden = false;
+    document.getElementById('lobby-code').textContent = code;
+    document.getElementById('lobby-start').hidden = !isHost;
+    document.getElementById('lobby-host-note').hidden = isHost;
+    window.MultiplayerReady.then(mp => {
+      online.unsubscribe = mp.subscribeToRoom(code, onRoomUpdate);
+    });
+  }
+
+  function onRoomUpdate(room) {
+    if (!online || !room) return;
+    online.lastRoom = room;
+    const players = room.players || {};
+    const list = document.getElementById('lobby-players');
+    list.innerHTML = '';
+    Object.entries(players)
+      .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))
+      .forEach(([pid, p]) => {
+        const li = document.createElement('li');
+        const isHost = pid === room.hostUid;
+        const isYou  = pid === online.uid;
+        li.innerHTML =
+          '<span>' + escapeHtml(p.name) + '</span>' +
+          (isHost ? '<span class="badge">host</span>' : '') +
+          (isYou ? '<span class="badge you">you</span>' : '');
+        list.appendChild(li);
+      });
+    document.getElementById('lobby-start').disabled = Object.keys(players).length < 2;
+    if (room.started) {
+      // Phase 2 will boot the game state here. For now, show a notice.
+      document.getElementById('lobby-host-note').hidden = false;
+      document.getElementById('lobby-host-note').textContent =
+        'Game started — in-game sync coming next. Watch this branch.';
+    }
+  }
+
+  async function onStartRoom() {
+    if (!online || !online.isHost || !online.lastRoom) return;
+    const players = online.lastRoom.players || {};
+    const names = Object.entries(players)
+      .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))
+      .map(([, p]) => p.name);
+    if (names.length < 2) return;
+    const mp = await window.MultiplayerReady;
+    const initial = Q.createGame(names, online.hostConfig || {});
+    await mp.startRoom(online.code, initial);
+  }
+
+  async function onLeaveRoom() {
+    if (!online) return;
+    const mp = await window.MultiplayerReady;
+    if (online.unsubscribe) online.unsubscribe();
+    try { await mp.leaveRoom(online.code, online.uid); } catch (_) {}
+    online = null;
+    document.getElementById('lobby').hidden = true;
+    document.getElementById('setup').hidden = false;
+  }
+
+  function showOnlineError(msg) {
+    const el = document.getElementById('online-error');
+    el.textContent = msg;
+    el.hidden = false;
+  }
+  function hideOnlineError() {
+    document.getElementById('online-error').hidden = true;
+  }
+
   // ---------- Setup ----------
 
   function renderNameInputs() {
