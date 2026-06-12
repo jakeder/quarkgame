@@ -268,7 +268,6 @@
     document.getElementById('round-number').textContent = state.round;
     document.getElementById('max-rounds-display').textContent = state.config.maxRounds;
     document.getElementById('deck-count').textContent = state.deck.length;
-    document.getElementById('energy-display').textContent = Q.formatEnergy(p.energy);
 
     const chip = document.getElementById('phase-chip');
     chip.textContent = state.phase === 'synthesize' ? 'Synthesize' : 'Decays';
