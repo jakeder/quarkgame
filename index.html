@@ -19,11 +19,13 @@
           <option value="2">2</option>
           <option value="3">3</option>
           <option value="4" selected>4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
         </select>
       </div>
       <div class="setup-row">
         <label for="draw-size">Cards drawn per turn</label>
-        <input id="draw-size" type="number" min="1" max="6" value="3" />
+        <input id="draw-size" type="number" min="1" max="10" value="3" />
       </div>
       <div class="setup-row">
         <label for="max-rounds">Rounds</label>
@@ -34,6 +36,13 @@
     </section>
 
     <section id="pass-screen" class="panel" hidden>
+      <div id="round-recap" class="round-recap" hidden>
+        <h2 id="round-recap-title"></h2>
+        <table>
+          <thead><tr><th>Player</th><th>Energy</th><th>Atoms</th><th>Particles</th></tr></thead>
+          <tbody id="round-recap-body"></tbody>
+        </table>
+      </div>
       <p id="pass-text"></p>
       <button id="pass-continue">I'm ready</button>
     </section>
@@ -81,14 +90,6 @@
         <h2>Decays</h2>
         <div id="decay-log"></div>
         <button id="end-turn-btn">End turn →</button>
-      </section>
-
-      <section class="scoreboard">
-        <h2>Scores</h2>
-        <table>
-          <thead><tr><th>Player</th><th>Energy</th><th>Atoms</th><th>Particles</th></tr></thead>
-          <tbody id="scoreboard-body"></tbody>
-        </table>
       </section>
 
       <aside id="rules-ref" class="game-side"></aside>

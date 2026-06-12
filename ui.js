@@ -38,7 +38,7 @@
 
   function startGame() {
     const count     = parseInt(document.getElementById('player-count').value, 10);
-    const drawSize  = clampInt(document.getElementById('draw-size').value, 1, 6, 3);
+    const drawSize  = clampInt(document.getElementById('draw-size').value, 1, 10, 3);
     const maxRounds = clampInt(document.getElementById('max-rounds').value, 3, 20, 10);
     const names = [];
     for (let i = 0; i < count; i++) {
@@ -168,6 +168,31 @@
   function renderPassScreen() {
     document.getElementById('pass-text').textContent =
       'Pass device to ' + Q.currentPlayer(state).name;
+    // Round just ended iff we're between turns with currentPlayer wrapped back
+    // to 0 and we're past round 1 (round 1 player 1 is the game's opening pass).
+    const recap = document.getElementById('round-recap');
+    if (state.currentPlayer === 0 && state.round > 1) {
+      document.getElementById('round-recap-title').textContent =
+        'Round ' + (state.round - 1) + ' complete · standings';
+      renderRecapBody();
+      recap.hidden = false;
+    } else {
+      recap.hidden = true;
+    }
+  }
+
+  function renderRecapBody() {
+    const tbody = document.getElementById('round-recap-body');
+    tbody.innerHTML = '';
+    [...state.players].sort((a, b) => b.energy - a.energy).forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + escapeHtml(p.name) + '</td>' +
+        '<td>' + Q.formatEnergy(p.energy) + '</td>' +
+        '<td>' + p.stockpile.atoms.length + '</td>' +
+        '<td>' + p.stockpile.particles.length + '</td>';
+      tbody.appendChild(tr);
+    });
   }
 
   function onPassContinue() {
@@ -193,7 +218,6 @@
 
     renderHand(p);
     renderStockpile(p);
-    renderScoreboard();
     renderDecays();
     updateActionButtons();
 
@@ -317,21 +341,6 @@
       el.appendChild(btn);
     }
     return el;
-  }
-
-  function renderScoreboard() {
-    const tbody = document.getElementById('scoreboard-body');
-    tbody.innerHTML = '';
-    for (const p of state.players) {
-      const tr = document.createElement('tr');
-      if (p.id === state.currentPlayer) tr.classList.add('active');
-      tr.innerHTML =
-        '<td>' + escapeHtml(p.name) + '</td>' +
-        '<td>' + Q.formatEnergy(p.energy) + '</td>' +
-        '<td>' + p.stockpile.atoms.length + '</td>' +
-        '<td>' + p.stockpile.particles.length + '</td>';
-      tbody.appendChild(tr);
-    }
   }
 
   function renderDecays() {

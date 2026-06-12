@@ -280,8 +280,26 @@ table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
 tr.active td { background: rgba(108, 199, 255, 0.08); }
 
-#pass-screen { text-align: center; padding: 4rem 1rem; }
+#pass-screen { text-align: center; padding: 2.5rem 1rem 3rem; }
 #pass-text { font-size: 1.4rem; margin-bottom: 1.5rem; }
+
+.round-recap {
+  text-align: left;
+  max-width: 36rem;
+  margin: 0 auto 2rem;
+  padding: 1rem 1.25rem 1.25rem;
+  background: var(--panel-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.round-recap h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.round-recap table { width: 100%; }
 
 .actions { display: flex; gap: 0.5rem; margin: 1rem 0; }
 
