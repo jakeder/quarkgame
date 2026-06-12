@@ -16,13 +16,14 @@ makes it installable as a standalone app.
    firebase login
    ```
 
-3. **Point this project at your Firebase project.** Either edit `.firebaserc`
-   and replace `YOUR_FIREBASE_PROJECT_ID` with your project ID (find it in the
-   Firebase Console → Project settings), or run:
+3. **Point this checkout at your Firebase project:**
    ```
    firebase use --add
    ```
-   and pick your project.
+   The CLI lists your projects, you pick one and give it an alias (e.g.
+   `default`). This writes a `.firebaserc` file with your project ID
+   (`.firebaserc` is gitignored — each contributor sets their own).
+   You can also pass the ID directly: `firebase deploy --only hosting --project your-project-id`.
 
 ## Deploy
 
