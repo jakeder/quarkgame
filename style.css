@@ -580,3 +580,114 @@ h1, .tagline, #setup, #pass-screen, #game-over {
 #game.waiting .card:hover,
 #game.waiting .tile:hover { transform: none; }
 #game.waiting .synth-actions { opacity: 0.55; }
+
+/* ── Theme variants ── */
+/* Default (cyan) lives in :root. Other themes override just the accent so the
+   navy palette stays consistent and contrast stays readable. */
+[data-theme="green"] {
+  --accent: #5bd3a1;
+  --accent-strong: #3eb787;
+}
+[data-theme="amber"] {
+  --accent: #ffc26c;
+  --accent-strong: #eaaa4a;
+}
+[data-theme="violet"] {
+  --accent: #c46cff;
+  --accent-strong: #aa4aea;
+}
+
+/* ── Settings gear + modal ── */
+.settings-btn {
+  position: fixed;
+  top: 1.1rem;
+  right: 1.1rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  width: 2.4rem; height: 2.4rem;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  padding: 0;
+  cursor: pointer;
+  z-index: 50;
+  transition: color 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+}
+.settings-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: rotate(30deg);
+}
+
+.settings-modal {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0;
+  max-width: 28rem;
+  width: calc(100vw - 2rem);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+.settings-modal::backdrop { background: rgba(8, 10, 22, 0.6); }
+.settings-form {
+  display: flex; flex-direction: column;
+  padding: 1.1rem 1.25rem 1.25rem;
+  gap: 1rem;
+}
+.settings-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+.settings-header h2 { margin: 0; font-size: 1.05rem; }
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+.icon-btn:hover { color: var(--text); }
+
+.settings-section { display: flex; flex-direction: column; gap: 0.4rem; }
+.settings-section h3 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.settings-row {
+  display: flex; align-items: center; gap: 0.55rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+.settings-row input[type="checkbox"] {
+  width: 1rem; height: 1rem;
+  accent-color: var(--accent);
+}
+
+.theme-picker { display: flex; gap: 0.5rem; }
+.theme-swatch {
+  width: 2.2rem; height: 2.2rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.08s ease;
+}
+.theme-swatch:hover { transform: scale(1.08); }
+.theme-swatch.active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent);
+}
+.theme-swatch[data-theme="cyan"]   { background: #6cc7ff; }
+.theme-swatch[data-theme="green"]  { background: #5bd3a1; }
+.theme-swatch[data-theme="amber"]  { background: #ffc26c; }
+.theme-swatch[data-theme="violet"] { background: #c46cff; }
+
+.settings-footer { display: flex; justify-content: flex-end; margin-top: 0.25rem; }

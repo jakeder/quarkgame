@@ -18,6 +18,49 @@
   document.getElementById('end-turn-btn').addEventListener('click', onEndTurn);
   document.getElementById('atom-electron-count').addEventListener('input', updateActionButtons);
 
+  // ---------- Settings panel wiring ----------
+  const S = window.Settings;
+  const settingsBtn   = document.getElementById('settings-btn');
+  const settingsModal = document.getElementById('settings-modal');
+  const themePicker   = document.getElementById('theme-picker');
+  const rememberCB    = document.getElementById('setting-remember-names');
+  const resetBtn      = document.getElementById('settings-reset');
+
+  function refreshSettingsUI() {
+    const cur = S.getAll();
+    themePicker.querySelectorAll('.theme-swatch').forEach(b => {
+      b.classList.toggle('active', b.dataset.theme === cur.theme);
+    });
+    rememberCB.checked = !!cur.rememberNames;
+  }
+  refreshSettingsUI();
+  S.subscribe(refreshSettingsUI);
+
+  settingsBtn.addEventListener('click', () => {
+    refreshSettingsUI();
+    if (typeof settingsModal.showModal === 'function') settingsModal.showModal();
+    else settingsModal.setAttribute('open', '');
+  });
+  themePicker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.theme-swatch');
+    if (!btn) return;
+    S.set('theme', btn.dataset.theme);
+  });
+  rememberCB.addEventListener('change', () => {
+    S.set('rememberNames', rememberCB.checked);
+    if (!rememberCB.checked) S.set('lastNames', []);
+  });
+  resetBtn.addEventListener('click', () => {
+    if (confirm('Reset settings to defaults?')) S.reset();
+  });
+  // Close-on-backdrop-click (the form method=dialog handles the X already).
+  settingsModal.addEventListener('click', (e) => {
+    const r = settingsModal.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right
+                && e.clientY >= r.top  && e.clientY <= r.bottom;
+    if (!inside) settingsModal.close();
+  });
+
   renderNameInputs();
 
   // ---------- Online lobby wiring ----------
@@ -211,14 +254,23 @@
     const count = parseInt(document.getElementById('player-count').value, 10);
     const wrap = document.getElementById('player-names');
     wrap.innerHTML = '';
+    const remembered = S.get('rememberNames') ? (S.get('lastNames') || []) : [];
     for (let i = 0; i < count; i++) {
       const row = document.createElement('div');
       row.className = 'setup-row';
+      const saved = remembered[i] || '';
       row.innerHTML =
         '<label for="p' + i + '">Player ' + (i + 1) + '</label>' +
-        '<input id="p' + i + '" type="text" placeholder="Name" />';
+        '<input id="p' + i + '" type="text" placeholder="Name" value="' +
+        escapeHtmlAttr(saved) + '" />';
       wrap.appendChild(row);
     }
+  }
+
+  function escapeHtmlAttr(s) {
+    return String(s).replace(/[&<>"']/g, ch => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[ch]));
   }
 
   function startGame() {
@@ -226,10 +278,14 @@
     const drawSize  = clampInt(document.getElementById('draw-size').value, 1, 10, 3);
     const maxRounds = clampInt(document.getElementById('max-rounds').value, 3, 20, 10);
     const names = [];
+    const rawNames = [];
     for (let i = 0; i < count; i++) {
       const input = document.getElementById('p' + i);
-      names.push((input && input.value.trim()) || 'Player ' + (i + 1));
+      const raw = input ? input.value.trim() : '';
+      rawNames.push(raw);
+      names.push(raw || 'Player ' + (i + 1));
     }
+    if (S.get('rememberNames')) S.set('lastNames', rawNames);
     state = Q.createGame(names, { drawSize, maxRounds });
     passScreenAcknowledged = true; // first player goes straight in
     clearSelections();
