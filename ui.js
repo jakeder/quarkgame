@@ -334,6 +334,29 @@
     return particle.cards.reduce((sum, c) => sum + (c.spin === 'up' ? 1 : -1), 0);
   }
 
+  function renderTurnBanner(currentP) {
+    const banner = document.getElementById('turn-banner');
+    if (!banner) return;
+    const phaseWord = state.phase === 'synthesize' ? 'synthesize'
+      : state.phase === 'decays' ? 'process decays'
+      : 'play';
+    if (online) {
+      if (isMyTurn()) {
+        banner.className = 'turn-banner your-turn';
+        banner.innerHTML = '<span class="banner-dot"></span>Your turn — ' + escapeHtml(phaseWord);
+      } else {
+        banner.className = 'turn-banner waiting';
+        banner.innerHTML = '<span class="banner-dot pulse"></span>Waiting for ' +
+          escapeHtml(currentP.name) + '…';
+      }
+    } else {
+      // Pass-and-play: whoever is at the device is the active player.
+      banner.className = 'turn-banner local-turn';
+      banner.innerHTML = '<span class="banner-dot"></span>' +
+        escapeHtml(currentP.name) + "'s turn — " + escapeHtml(phaseWord);
+    }
+  }
+
   function renderEnergyLedger(player) {
     const wrap = document.getElementById('energy-ledger');
     if (!wrap) return;
@@ -455,8 +478,9 @@
     const localIdx = online ? localPlayerIndex() : state.currentPlayer;
     const viewP = (localIdx >= 0 && state.players[localIdx]) ? state.players[localIdx] : currentP;
 
-    document.getElementById('current-name').textContent =
-      currentP.name + (online && isMyTurn() ? ' (you)' : '');
+    renderTurnBanner(currentP);
+    document.getElementById('game').classList.toggle('waiting', online && !isMyTurn());
+    document.getElementById('current-name').textContent = currentP.name;
     document.getElementById('round-number').textContent = state.round;
     document.getElementById('max-rounds-display').textContent = state.config.maxRounds;
     document.getElementById('deck-count').textContent = state.deck.length;

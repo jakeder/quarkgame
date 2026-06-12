@@ -525,3 +525,58 @@ h1, .tagline, #setup, #pass-screen, #game-over {
   color: var(--muted);
 }
 .badge.you { background: var(--accent); color: #0a0d1c; }
+
+/* ── Turn banner ── */
+.turn-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.95rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.85rem;
+  border: 1px solid;
+}
+.turn-banner .banner-dot {
+  display: inline-block;
+  width: 0.6rem; height: 0.6rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+.turn-banner.your-turn {
+  background: rgba(108, 199, 255, 0.14);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(108, 199, 255, 0.18);
+}
+.turn-banner.waiting {
+  background: var(--panel-inset);
+  border-color: var(--border);
+  color: var(--muted);
+}
+.turn-banner.local-turn {
+  background: var(--panel-inset);
+  border-color: var(--border);
+  color: var(--text);
+}
+.turn-banner .pulse {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+/* ── Waiting state (online, not your turn) ── */
+#game.waiting .card,
+#game.waiting .tile {
+  cursor: not-allowed;
+  opacity: 0.7;
+  filter: saturate(0.7);
+}
+#game.waiting .card:hover,
+#game.waiting .tile:hover { transform: none; }
+#game.waiting .synth-actions { opacity: 0.55; }
