@@ -4,11 +4,12 @@
 // offline fallback. Cross-origin requests (Firebase SDK on gstatic, the
 // realtime database on firebaseio) are never intercepted.
 
-const CACHE = 'qq-shell-v1';
+const CACHE = 'qq-shell-v2';
 const SHELL = [
   './',
   './index.html',
   './style.css',
+  './settings.js',
   './game.js',
   './ui.js',
   './multiplayer.js',
