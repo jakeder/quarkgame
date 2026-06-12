@@ -177,6 +177,8 @@ input[type="number"] { width: 5rem; }
   gap: 0.5rem;
   align-items: center;
 }
+/* display:flex above defeats the UA [hidden] { display: none } rule; restore it. */
+.synth-group[hidden] { display: none; }
 .synth-divider { color: var(--muted); }
 .electron-input { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
 
