@@ -17,10 +17,20 @@ let api = null;
 async function init() {
   let cfg;
   try {
-    cfg = (await import('./firebase-config.js')).firebaseConfig;
+    const mod = await import('./firebase-config.js');
+    cfg = mod.firebaseConfig;
+    if (!cfg) {
+      api = { ready: false, error: 'firebase-config.js loaded but did not `export const firebaseConfig = {...}`. Check that the file starts with `export const firebaseConfig = `.' };
+      window.Multiplayer = api;
+      return api;
+    }
   } catch (err) {
-    // No config — surface a friendly message instead of crashing.
-    api = { ready: false, error: 'Missing firebase-config.js. See firebase-config.example.js for setup.' };
+    // Most common cause is the file not being at /firebase-config.js relative
+    // to the page (often: file:// open, file in wrong folder, or a syntax
+    // error inside the file). Surface the real error message.
+    const detail = err && err.message ? err.message : String(err);
+    console.error('[multiplayer] firebase-config.js import failed:', err);
+    api = { ready: false, error: 'Could not load firebase-config.js: ' + detail + ' — check the browser console for the underlying network/syntax error.' };
     window.Multiplayer = api;
     return api;
   }
