@@ -171,6 +171,12 @@ input[type="number"] { width: 5rem; }
   background: var(--panel-inset);
   border-radius: 6px;
 }
+.synth-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
 .synth-divider { color: var(--muted); }
 .electron-input { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
 

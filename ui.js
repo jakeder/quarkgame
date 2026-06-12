@@ -222,7 +222,8 @@
     updateActionButtons();
 
     const synthing = state.phase === 'synthesize';
-    document.getElementById('synth-actions').style.display = synthing ? '' : 'none';
+    document.getElementById('synth-group-synthesize').hidden = !synthing;
+    document.getElementById('end-turn-btn').hidden = synthing;
     document.getElementById('decays-section').hidden = synthing;
   }
 

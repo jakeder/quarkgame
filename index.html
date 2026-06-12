@@ -62,15 +62,18 @@
       </section>
 
       <section class="synth-actions" id="synth-actions">
-        <button id="synth-particle-btn" disabled>Synthesize particle (need 3 cards)</button>
-        <span class="synth-divider">·</span>
-        <label class="electron-input">
-          Use electrons:
-          <input type="number" id="atom-electron-count" min="0" max="2" value="0" />
-        </label>
-        <button id="build-atom-btn" disabled>Build atom from selected particles</button>
-        <span class="synth-divider">·</span>
-        <button id="end-synth-btn" class="secondary">End synthesis →</button>
+        <span class="synth-group" id="synth-group-synthesize">
+          <button id="synth-particle-btn" disabled>Synthesize particle (need 3 cards)</button>
+          <span class="synth-divider">·</span>
+          <label class="electron-input">
+            Use electrons:
+            <input type="number" id="atom-electron-count" min="0" max="2" value="0" />
+          </label>
+          <button id="build-atom-btn" disabled>Build atom from selected particles</button>
+          <span class="synth-divider">·</span>
+          <button id="end-synth-btn" class="secondary">End synthesis →</button>
+        </span>
+        <button id="end-turn-btn" hidden>End turn →</button>
       </section>
       <div id="synth-error" class="error" hidden></div>
 
@@ -89,7 +92,6 @@
       <section id="decays-section" class="panel-inset" hidden>
         <h2>Decays</h2>
         <div id="decay-log"></div>
-        <button id="end-turn-btn">End turn →</button>
       </section>
 
       <aside id="rules-ref" class="game-side"></aside>
