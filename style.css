@@ -357,6 +357,43 @@ h1, .tagline, #setup, #pass-screen, #game-over {
   scrollbar-width: thin;
 }
 .game-side h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+
+/* Energy ledger */
+.energy-ledger { margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.ledger-total {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+  margin-bottom: 0.75rem;
+  font-family: ui-monospace, monospace;
+}
+.ledger-unit {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+.ledger-rows { display: flex; flex-direction: column; gap: 0.3rem; }
+.ledger-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.78rem;
+  font-family: ui-monospace, monospace;
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed transparent;
+}
+.ledger-row + .ledger-row { border-top: 1px dashed var(--border); padding-top: 0.4rem; }
+.ledger-label { color: var(--text); }
+.ledger-count { color: var(--muted); }
+.ledger-amount { color: var(--accent); font-variant-numeric: tabular-nums; }
+.ledger-empty {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+}
 .ref-block + .ref-block { margin-top: 0.9rem; }
 .ref-block h3 {
   margin: 0 0 0.5rem;

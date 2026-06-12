@@ -149,6 +149,60 @@
     return particle.cards.reduce((sum, c) => sum + (c.spin === 'up' ? 1 : -1), 0);
   }
 
+  function renderEnergyLedger(player) {
+    const wrap = document.getElementById('energy-ledger');
+    if (!wrap) return;
+    const buckets = aggregateEnergyLog(player.log);
+    const rows = buckets.length === 0
+      ? '<div class="ledger-empty">No energy collected yet.</div>'
+      : buckets.map(b =>
+          '<div class="ledger-row">' +
+            '<span class="ledger-label">' + escapeHtml(b.label) + '</span>' +
+            '<span class="ledger-count">×' + b.count + '</span>' +
+            '<span class="ledger-amount">+' + Q.formatEnergy(b.total) + '</span>' +
+          '</div>'
+        ).join('');
+    const total = Q.formatEnergy(player.energy);
+    const [num, unit] = total.split(' ');
+    wrap.innerHTML =
+      '<h2>Energy ledger</h2>' +
+      '<div class="ledger-total tabular">' + num +
+        '<span class="ledger-unit">' + (unit || '') + '</span>' +
+      '</div>' +
+      '<div class="ledger-rows">' + rows + '</div>';
+  }
+
+  function aggregateEnergyLog(log) {
+    const buckets = new Map();
+    for (const event of log) {
+      let key, label;
+      if (event.kind === 'synth-particle') {
+        key = 'p:' + event.particleType;
+        label = shortName(Q.PARTICLE_LABEL[event.particleType]) + ' synthesis';
+      } else if (event.kind === 'synth-atom') {
+        key = 'a:' + event.atomType;
+        label = shortName(Q.ATOM_LABEL[event.atomType]) + ' formation';
+      } else if (event.kind === 'annihilation') {
+        key = 'annihilation';
+        label = 'e⁻/e⁺ annihilation';
+      } else {
+        continue;
+      }
+      if (!buckets.has(key)) buckets.set(key, { label, count: 0, total: 0 });
+      const b = buckets.get(key);
+      b.count += (event.pairs || 1);
+      b.total += (event.energy || 0);
+    }
+    return [...buckets.values()];
+  }
+
+  // "Proton (p⁺)" → "Proton"
+  function shortName(label) {
+    if (!label) return '';
+    const i = label.indexOf(' (');
+    return i === -1 ? label : label.slice(0, i);
+  }
+
   function clampInt(v, lo, hi, fallback) {
     const n = parseInt(v, 10);
     if (Number.isNaN(n)) return fallback;
@@ -223,6 +277,7 @@
     renderHand(p);
     renderStockpile(p);
     renderDecays();
+    renderEnergyLedger(p);
     updateActionButtons();
 
     const synthing = state.phase === 'synthesize';
