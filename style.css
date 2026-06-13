@@ -795,3 +795,20 @@ h1, .tagline, #setup, #pass-screen, #game-over {
   transition: opacity 0.1s ease;
 }
 .cards.discardable .card.discard-target:hover::before { opacity: 1; }
+
+/* ── Advanced game: anti-quarks, mesons, anti-baryons ── */
+.card.anti {
+  background: #2a2046;          /* slightly distinct from regular quark card */
+  border-style: dashed;
+}
+.card.anti .card-symbol { font-style: italic; }
+.card.anti::after { font-style: normal; opacity: 0.85; }
+
+/* Pion tiles distinct from baryons */
+.tile.pi { background: linear-gradient(140deg, #2a304a, #20204a); }
+
+#worlds-picker { margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.75rem; border: 1px dashed var(--border); border-radius: 6px; }
+#worlds-picker h3 { margin: 0 0 0.4rem; }
+
+.variant-advanced[aria-disabled="true"],
+.variant-advanced input:disabled + span { opacity: 0.55; }

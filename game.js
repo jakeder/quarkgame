@@ -12,14 +12,23 @@ const GeV = 1_000_000_000;
 
 // Particle recipes. spin: 'mixed' = NOT all same spin (i.e., at least one up AND
 // at least one down). 'aligned' = all three up or all three down. All recipes
-// require one card of each color (RGB) — Gell-Mann's Gimmick.
+// require one card of each color (RGB) — Gell-Mann's Gimmick. Advanced game
+// adds anti-baryons (anti=true): mirror compositions with anti-quarks, and
+// decays produce an anti-proton + electrons/positrons swapped per the rulebook.
 const PARTICLE_RULES = [
-  { type: 'proton',  flavors: { u: 2, d: 1 }, spin: 'mixed',   energy: 938 * MeV,  stable: true,  decay: null },
-  { type: 'neutron', flavors: { u: 1, d: 2 }, spin: 'mixed',   energy: 940 * MeV,  stable: false, decay: { electrons: 1, positrons: 0, delayed: true  } },
-  { type: 'delta++', flavors: { u: 3, d: 0 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 0, positrons: 1, delayed: false } },
-  { type: 'delta+',  flavors: { u: 2, d: 1 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 0, positrons: 0, delayed: false } },
-  { type: 'delta0',  flavors: { u: 1, d: 2 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 1, positrons: 0, delayed: false } },
-  { type: 'delta-',  flavors: { u: 0, d: 3 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 2, positrons: 0, delayed: false } },
+  { type: 'proton',  flavors: { u: 2, d: 1 }, spin: 'mixed',   energy: 938 * MeV,  stable: true,  decay: null,                                                       anti: false },
+  { type: 'neutron', flavors: { u: 1, d: 2 }, spin: 'mixed',   energy: 940 * MeV,  stable: false, decay: { electrons: 1, positrons: 0, delayed: true  },             anti: false },
+  { type: 'delta++', flavors: { u: 3, d: 0 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 0, positrons: 1, delayed: false },             anti: false },
+  { type: 'delta+',  flavors: { u: 2, d: 1 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 0, positrons: 0, delayed: false },             anti: false },
+  { type: 'delta0',  flavors: { u: 1, d: 2 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 1, positrons: 0, delayed: false },             anti: false },
+  { type: 'delta-',  flavors: { u: 0, d: 3 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 2, positrons: 0, delayed: false },             anti: false },
+  // ── Advanced (anti) ────────────────────────────────────────────────────────
+  { type: 'antiproton',   flavors: { u: 2, d: 1 }, spin: 'mixed',   energy: 938 * MeV,  stable: true,  decay: null,                                                  anti: true  },
+  { type: 'antineutron',  flavors: { u: 1, d: 2 }, spin: 'mixed',   energy: 940 * MeV,  stable: false, decay: { electrons: 0, positrons: 1, delayed: true  },        anti: true  },
+  { type: 'antidelta++',  flavors: { u: 3, d: 0 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 1, positrons: 0, delayed: false },        anti: true  },
+  { type: 'antidelta+',   flavors: { u: 2, d: 1 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 0, positrons: 0, delayed: false },        anti: true  },
+  { type: 'antidelta0',   flavors: { u: 1, d: 2 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 0, positrons: 1, delayed: false },        anti: true  },
+  { type: 'antidelta-',   flavors: { u: 0, d: 3 }, spin: 'aligned', energy: 1230 * MeV, stable: false, decay: { electrons: 0, positrons: 2, delayed: false },        anti: true  },
 ];
 
 const PARTICLE_LABEL = {
@@ -29,17 +38,46 @@ const PARTICLE_LABEL = {
   'delta+':  'Delta⁺ (Δ⁺)',
   'delta0':  'Delta⁰ (Δ⁰)',
   'delta-':  'Delta⁻ (Δ⁻)',
+  'antiproton':  'Anti-Proton (p̄⁻)',
+  'antineutron': 'Anti-Neutron (n̄⁰)',
+  'antidelta++': 'Anti-Delta⁻⁻ (Δ̄⁻⁻)',
+  'antidelta+':  'Anti-Delta⁻ (Δ̄⁻)',
+  'antidelta0':  'Anti-Delta⁰ (Δ̄⁰)',
+  'antidelta-':  'Anti-Delta⁺ (Δ̄⁺)',
+  'pi+': 'Pi Plus (π⁺)',
+  'pi-': 'Pi Minus (π⁻)',
+  'pi0': 'Pi Zero (π⁰)',
 };
+
+// Meson (pion) recipes. 2 cards = 1 quark + 1 anti-quark of matching color
+// letter (red+anti-red ⇒ colorless) and different spins.
+const MESON_RULES = [
+  { type: 'pi+', q: { flavor: 'u', anti: false }, aq: { flavor: 'd', anti: true  }, energy: 140 * MeV, decay: { electrons: 0, positrons: 1 } },
+  { type: 'pi-', q: { flavor: 'd', anti: false }, aq: { flavor: 'u', anti: true  }, energy: 140 * MeV, decay: { electrons: 1, positrons: 0 } },
+  // Pi-zero: two ways to make it (uū or dd̄). Both are the same particle.
+  { type: 'pi0', q: { flavor: 'u', anti: false }, aq: { flavor: 'u', anti: true  }, energy: 135 * MeV, decay: { electrons: 0, positrons: 0 } },
+  { type: 'pi0', q: { flavor: 'd', anti: false }, aq: { flavor: 'd', anti: true  }, energy: 135 * MeV, decay: { electrons: 0, positrons: 0 } },
+];
 
 // Atom recipes. spinSumCheck takes the literal sum of quark spins (+1 per up,
 // -1 per down). The He-4 sum is always even (12 spins of ±1), so the
 // rulebook's "0 or ±1" reduces in practice to 0 — kept literal in code.
+// Advanced game adds anti-atoms: mirror compositions (anti-protons +
+// anti-neutrons + positrons in place of electrons) with the same energies.
 const ATOM_RULES = [
-  { type: 'H',   protons: 1, neutrons: 0, electrons: 1, energy: 13.6 * eV,    spinSumCheck: () => true,                                 stable: true  },
-  { type: 'D',   protons: 1, neutrons: 1, electrons: 1, energy: 2.22 * MeV,   spinSumCheck: (s) => s === 0,                             stable: true  },
-  { type: 'T',   protons: 1, neutrons: 2, electrons: 1, energy: 8.48 * MeV,   spinSumCheck: (s) => s === 1 || s === -1,                 stable: false },
-  { type: 'He3', protons: 2, neutrons: 1, electrons: 2, energy: 7.72 * MeV,   spinSumCheck: (s) => s === 1 || s === -1,                 stable: true  },
-  { type: 'He4', protons: 2, neutrons: 2, electrons: 2, energy: 28.3 * MeV,   spinSumCheck: (s) => s === -1 || s === 0 || s === 1,      stable: true  },
+  { type: 'H',   protons: 1, neutrons: 0, electrons: 1, energy: 13.6 * eV,    spinSumCheck: () => true,                                 stable: true,  anti: false },
+  { type: 'D',   protons: 1, neutrons: 1, electrons: 1, energy: 2.22 * MeV,   spinSumCheck: (s) => s === 0,                             stable: true,  anti: false },
+  { type: 'T',   protons: 1, neutrons: 2, electrons: 1, energy: 8.48 * MeV,   spinSumCheck: (s) => s === 1 || s === -1,                 stable: false, anti: false },
+  { type: 'He3', protons: 2, neutrons: 1, electrons: 2, energy: 7.72 * MeV,   spinSumCheck: (s) => s === 1 || s === -1,                 stable: true,  anti: false },
+  { type: 'He4', protons: 2, neutrons: 2, electrons: 2, energy: 28.3 * MeV,   spinSumCheck: (s) => s === -1 || s === 0 || s === 1,      stable: true,  anti: false },
+  // ── Advanced (anti) ────────────────────────────────────────────────────────
+  // For anti-atoms the "protons/neutrons" counts mean anti-protons / anti-neutrons
+  // and "electrons" means positrons.
+  { type: 'antiH',   protons: 1, neutrons: 0, electrons: 1, energy: 13.6 * eV,    spinSumCheck: () => true,                                 stable: true,  anti: true },
+  { type: 'antiD',   protons: 1, neutrons: 1, electrons: 1, energy: 2.22 * MeV,   spinSumCheck: (s) => s === 0,                             stable: true,  anti: true },
+  { type: 'antiT',   protons: 1, neutrons: 2, electrons: 1, energy: 8.48 * MeV,   spinSumCheck: (s) => s === 1 || s === -1,                 stable: false, anti: true },
+  { type: 'antiHe3', protons: 2, neutrons: 1, electrons: 2, energy: 7.72 * MeV,   spinSumCheck: (s) => s === 1 || s === -1,                 stable: true,  anti: true },
+  { type: 'antiHe4', protons: 2, neutrons: 2, electrons: 2, energy: 28.3 * MeV,   spinSumCheck: (s) => s === -1 || s === 0 || s === 1,      stable: true,  anti: true },
 ];
 
 const ATOM_LABEL = {
@@ -48,6 +86,27 @@ const ATOM_LABEL = {
   'T':   'Tritium (³H)',
   'He3': 'Helium-3 (³He)',
   'He4': 'Helium-4 (⁴He)',
+  'antiH':   'Anti-Hydrogen (H̄)',
+  'antiD':   'Anti-Deuterium (²H̄)',
+  'antiT':   'Anti-Tritium (³H̄)',
+  'antiHe3': 'Anti-Helium-3 (³H̄e)',
+  'antiHe4': 'Anti-Helium-4 (⁴H̄e)',
+};
+
+const ANTIPARTICLE_OF = {
+  // Atom ↔ anti-atom pairing for "Nothing Left Behind" annihilation.
+  'H':       'antiH',   'antiH':   'H',
+  'D':       'antiD',   'antiD':   'D',
+  'T':       'antiT',   'antiT':   'T',
+  'He3':     'antiHe3', 'antiHe3': 'He3',
+  'He4':     'antiHe4', 'antiHe4': 'He4',
+  // Particle ↔ anti-particle pairing too (used by Nothing Left Behind).
+  'proton':      'antiproton',  'antiproton':  'proton',
+  'neutron':     'antineutron', 'antineutron': 'neutron',
+  'delta++':     'antidelta++', 'antidelta++': 'delta++',
+  'delta+':      'antidelta+',  'antidelta+':  'delta+',
+  'delta0':      'antidelta0',  'antidelta0':  'delta0',
+  'delta-':      'antidelta-',  'antidelta-':  'delta-',
 };
 
 const ANNIHILATION_ENERGY = 1.02 * MeV;
@@ -56,10 +115,14 @@ const ANNIHILATION_ENERGY = 1.02 * MeV;
 const VARIANT_LABEL = {
   pauli:       'Pauli Penalty',
   heliumPrize: 'Helium Prize',
+  antiHero:    'Anti Hero',
+  nothingLeft: 'Nothing Left Behind',
 };
 const VARIANT_DESC = {
   pauli:       'Pay an energy penalty each turn for free charges left in your stockpile. Annihilate positrons any time; H⁻ anions are exempt.',
   heliumPrize: 'Win by synthesizing the most Helium-3 and Helium-4 atoms (ties broken by energy) instead of the most energy.',
+  antiHero:    'Advanced only. Each player picks a world (actual or anti). Only earn binding energy for creations in your world.',
+  nothingLeft: 'Advanced only. Make equal numbers of particles and anti-particles. Pair them off at game end; fewest left wins (ties broken by energy).',
 };
 
 // Pauli Penalty paid at the end of each turn for N free charges (free protons +
@@ -89,12 +152,15 @@ function pauliPenalty(n) {
 // inside atoms (including the extra electron of an H⁻ anion) are not free and
 // don't count.
 function freeChargeCount(player) {
-  const freeProtons = player.stockpile.particles.filter(p => p.type === 'proton').length;
+  // Free (anti-)protons + free electrons + free positrons. (Anti-)neutrons are
+  // neutral. Pions briefly held during synth wouldn't normally survive into the
+  // end-of-turn count (they auto-decay).
+  const freeProtons = player.stockpile.particles.filter(p => p.type === 'proton' || p.type === 'antiproton').length;
   return freeProtons + player.stockpile.positrons + player.stockpile.electrons;
 }
 
 function heliumCount(player) {
-  return player.stockpile.atoms.filter(a => a.type === 'He3' || a.type === 'He4').length;
+  return player.stockpile.atoms.filter(a => /He3|He4/.test(a.type)).length;
 }
 
 function shuffle(arr, rng) {
@@ -106,15 +172,20 @@ function shuffle(arr, rng) {
   return a;
 }
 
-function buildDeck() {
-  // 12 distinct cards (2 flavors x 3 colors x 2 spins) x 4 copies = 48.
+function buildDeck(advanced) {
+  // Basic: 12 distinct (2 flavors × 3 colors × 2 spins) × 4 = 48.
+  // Advanced: also adds 12 anti-quark variants × 4 = 96 total. An anti-quark's
+  // "color" field is the matching anti-color letter (R̄ stored as anti:true + R).
   const cards = [];
   let id = 0;
+  const antis = advanced ? [false, true] : [false];
   for (const flavor of ['u', 'd']) {
     for (const color of ['R', 'G', 'B']) {
       for (const spin of ['up', 'down']) {
-        for (let copy = 0; copy < 4; copy++) {
-          cards.push({ id: 'c' + (id++), flavor, color, spin });
+        for (const anti of antis) {
+          for (let copy = 0; copy < 4; copy++) {
+            cards.push({ id: 'c' + (id++), flavor, color, spin, anti });
+          }
         }
       }
     }
@@ -131,16 +202,16 @@ function makeSyntheticCards(state, spec) {
   return spec.map(s => ({ id: nextId(state, 'sc'), synthetic: true, ...s }));
 }
 
-function makeSyntheticProton(state) {
+function makeSyntheticProton(state, anti) {
   // Default arrangement: u(R,up), u(G,up), d(B,down) — satisfies "two different spins".
-  // Spin sum = +1 (two up, one down).
+  // Spin sum = +1 (two up, one down). anti=true mirrors to an anti-proton.
   return {
-    id: nextId(state, 'p'),
-    type: 'proton',
+    id: nextId(state, anti ? 'ap' : 'p'),
+    type: anti ? 'antiproton' : 'proton',
     cards: makeSyntheticCards(state, [
-      { flavor: 'u', color: 'R', spin: 'up'   },
-      { flavor: 'u', color: 'G', spin: 'up'   },
-      { flavor: 'd', color: 'B', spin: 'down' },
+      { flavor: 'u', color: 'R', spin: 'up',   anti: !!anti },
+      { flavor: 'u', color: 'G', spin: 'up',   anti: !!anti },
+      { flavor: 'd', color: 'B', spin: 'down', anti: !!anti },
     ]),
     catMarker: false,
     catPlacedTurn: null,
@@ -166,8 +237,16 @@ function spinAllSame(cards) {
 }
 
 function identifyParticle(cards) {
+  if (cards.length === 2) return identifyMeson(cards);
   if (cards.length !== 3) {
-    return { ok: false, reason: 'Select exactly three quark cards to synthesize a particle.' };
+    return { ok: false, reason: 'Select 3 cards for a baryon (or 2 quark+anti-quark for a pion in Advanced).' };
+  }
+  // All-quark or all-anti-quark mixes only. A real Quark + Anti-Quark + Quark is
+  // not a valid baryon.
+  const antis = cards.filter(c => c.anti).length;
+  const isAnti = antis === 3;
+  if (antis !== 0 && antis !== 3) {
+    return { ok: false, reason: 'A baryon must be all quarks or all anti-quarks (not mixed).' };
   }
   if (!colorsAreRGB(cards)) {
     return { ok: false, reason: 'Need one card of each color (R, G, B) — Gell-Mann’s Gimmick.' };
@@ -175,15 +254,35 @@ function identifyParticle(cards) {
   const f = flavorCounts(cards);
   const aligned = spinAllSame(cards);
   for (const rule of PARTICLE_RULES) {
+    if (!!rule.anti !== isAnti) continue;
     if (rule.flavors.u !== f.u || rule.flavors.d !== f.d) continue;
     if (rule.spin === 'aligned' && !aligned) continue;
     if (rule.spin === 'mixed' && aligned) continue;
     return { ok: true, rule };
   }
-  // If we got here the flavor/color check passed but no spin rule matches.
-  // That can happen for e.g. (u,u,d) with one up + two down — that's a Proton (mixed),
-  // which should match. The only way to fall through is a logic bug, but keep a defensive message.
   return { ok: false, reason: 'These cards do not match any particle recipe.' };
+}
+
+// Pion identification: 2 cards = 1 quark + 1 anti-quark, matching color
+// letters (red+anti-red is colorless), different spins. Flavor combo picks π.
+function identifyMeson(cards) {
+  if (cards.length !== 2) return { ok: false, reason: 'A pion is exactly 2 cards.' };
+  const antis = cards.filter(c => c.anti).length;
+  if (antis !== 1) return { ok: false, reason: 'A pion needs one quark and one anti-quark.' };
+  const q  = cards.find(c => !c.anti);
+  const aq = cards.find(c =>  c.anti);
+  if (q.color !== aq.color) {
+    return { ok: false, reason: 'Pion needs matching color letters: color and its anti-color (e.g. red + anti-red).' };
+  }
+  if (q.spin === aq.spin) {
+    return { ok: false, reason: 'Pion needs two different spins.' };
+  }
+  for (const rule of MESON_RULES) {
+    if (rule.q.flavor === q.flavor && rule.aq.flavor === aq.flavor) {
+      return { ok: true, rule };
+    }
+  }
+  return { ok: false, reason: 'No pion matches that flavor combination.' };
 }
 
 function spinSumOfParticles(particles) {
@@ -194,22 +293,37 @@ function spinSumOfParticles(particles) {
   return sum;
 }
 
-function identifyAtom(particles, electronCount) {
-  const protons  = particles.filter(p => p.type === 'proton').length;
-  const neutrons = particles.filter(p => p.type === 'neutron').length;
-  if (protons + neutrons !== particles.length) {
-    return { ok: false, reason: 'Atoms are made from protons and neutrons only.' };
+function identifyAtom(particles, leptonCount) {
+  // leptonCount = number of free electrons (regular atom) OR positrons (anti
+  // atom) the player is consuming. Whether the atom is a regular atom or an
+  // anti-atom is determined by the particle types.
+  const protons      = particles.filter(p => p.type === 'proton').length;
+  const neutrons     = particles.filter(p => p.type === 'neutron').length;
+  const antiProtons  = particles.filter(p => p.type === 'antiproton').length;
+  const antiNeutrons = particles.filter(p => p.type === 'antineutron').length;
+  const regular = protons + neutrons;
+  const anti    = antiProtons + antiNeutrons;
+  if (regular > 0 && anti > 0) {
+    return { ok: false, reason: 'An atom cannot mix matter and anti-matter nucleons.' };
   }
+  if (regular + anti !== particles.length) {
+    return { ok: false, reason: 'Atoms are built from (anti) protons and neutrons only.' };
+  }
+  const isAnti = anti > 0;
+  const targetP = isAnti ? antiProtons  : protons;
+  const targetN = isAnti ? antiNeutrons : neutrons;
   for (const rule of ATOM_RULES) {
-    if (rule.protons !== protons || rule.neutrons !== neutrons) continue;
-    if (rule.electrons !== electronCount) {
-      return { ok: false, reason: `${ATOM_LABEL[rule.type]} needs exactly ${rule.electrons} free electron${rule.electrons === 1 ? '' : 's'}.` };
+    if (!!rule.anti !== isAnti) continue;
+    if (rule.protons !== targetP || rule.neutrons !== targetN) continue;
+    if (rule.electrons !== leptonCount) {
+      const lep = isAnti ? 'positron' : 'electron';
+      return { ok: false, reason: `${ATOM_LABEL[rule.type]} needs exactly ${rule.electrons} free ${lep}${rule.electrons === 1 ? '' : 's'}.` };
     }
     const sum = spinSumOfParticles(particles);
     if (!rule.spinSumCheck(sum)) {
       return { ok: false, reason: `Quark spin sum ${sum >= 0 ? '+' + sum : sum} does not satisfy the ${ATOM_LABEL[rule.type]} constraint.` };
     }
-    return { ok: true, rule, spinSum: sum };
+    return { ok: true, rule, spinSum: sum, isAnti };
   }
   return { ok: false, reason: 'No atom matches that combination of protons and neutrons.' };
 }
@@ -224,7 +338,9 @@ function formatEnergy(value) {
 }
 
 function describeCard(card) {
-  return `${FLAVOR_LABEL[card.flavor]} ${COLOR_LABEL[card.color]} ${card.spin}`;
+  const flavor = card.anti ? 'anti-' + FLAVOR_LABEL[card.flavor] : FLAVOR_LABEL[card.flavor];
+  const color  = card.anti ? 'anti-' + COLOR_LABEL[card.color]  : COLOR_LABEL[card.color];
+  return `${flavor} ${color} ${card.spin}`;
 }
 
 function createGame(playerNames, opts) {
@@ -233,14 +349,22 @@ function createGame(playerNames, opts) {
   const maxRounds = o.maxRounds != null ? o.maxRounds : 10;
   // Hand limit: a positive number caps the hand; null/0 means no limit.
   const handLimit = (o.handLimit != null && o.handLimit > 0) ? o.handLimit : null;
+  const advanced  = !!o.advanced;
   const rng       = o.rng || Math.random;
   const variants = {
     pauli:       !!(o.variants && o.variants.pauli),
     heliumPrize: !!(o.variants && o.variants.heliumPrize),
+    // Advanced-only variants. Each player can pick a world (Anti Hero) — set
+    // per-player below.
+    antiHero:    !!(o.variants && o.variants.antiHero) && advanced,
+    nothingLeft: !!(o.variants && o.variants.nothingLeft) && advanced,
   };
+  // Anti Hero: each player declares 'actual' or 'anti' world at start. If the
+  // host passes worlds, honor; else default everyone to 'actual'.
+  const worlds = (o.worlds && Array.isArray(o.worlds)) ? o.worlds : null;
   const state = {
     _nextId: 1,
-    deck: shuffle(buildDeck(), rng),
+    deck: shuffle(buildDeck(advanced), rng),
     discardPile: [],
     players: playerNames.map((name, i) => ({
       id: i,
@@ -250,12 +374,14 @@ function createGame(playerNames, opts) {
       energy: 0,
       log: [],
       annihilations: 0,
+      // Anti Hero variant: which world this player lives in.
+      world: variants.antiHero ? (worlds && worlds[i] === 'anti' ? 'anti' : 'actual') : 'both',
     })),
     currentPlayer: 0,
     turn: 1,           // global turn counter (increments every player change)
     round: 1,          // increments when player index wraps to 0
     phase: 'synthesize',  // 'synthesize' | 'decays' | 'between' | 'over'
-    config: { drawSize, maxRounds, handLimit, variants },
+    config: { drawSize, maxRounds, handLimit, advanced, variants },
     lastDecayEvents: [],
     lastSynthEvents: [],
     lastPenalty: null,
@@ -286,8 +412,28 @@ function synthesizeParticle(state, cardIds) {
   const r = identifyParticle(cards);
   if (!r.ok) return { ok: false, error: r.reason };
   p.hand = p.hand.filter(c => !cardIds.includes(c.id));
+  // Pion (meson) path: 2 cards. Awards energy but auto-decays during the decays
+  // phase per the rulebook (returns the cards "to the bank" — we just drop them).
+  if (cards.length === 2) {
+    const meson = {
+      id: nextId(state, 'm'),
+      type: r.rule.type,
+      cards,
+      decay: r.rule.decay,
+      createdTurn: state.turn,
+      synthetic: false,
+    };
+    p.stockpile.particles.push(meson);
+    const gained = worldGainFor(state, p, r.rule);
+    p.energy += gained;
+    const event = { kind: 'synth-meson', particleType: r.rule.type, energy: gained, particleId: meson.id };
+    p.log.push(event);
+    state.lastSynthEvents.push(event);
+    return { ok: true, particle: meson, energy: gained };
+  }
+  // Baryon / anti-baryon path: 3 cards.
   const particle = {
-    id: nextId(state, 'p'),
+    id: nextId(state, r.rule.anti ? 'ap' : 'p'),
     type: r.rule.type,
     cards,
     catMarker: false,
@@ -296,40 +442,55 @@ function synthesizeParticle(state, cardIds) {
     synthetic: false,
   };
   p.stockpile.particles.push(particle);
-  p.energy += r.rule.energy;
-  const event = { kind: 'synth-particle', particleType: r.rule.type, energy: r.rule.energy, particleId: particle.id };
+  const gained = worldGainFor(state, p, r.rule);
+  p.energy += gained;
+  const event = { kind: 'synth-particle', particleType: r.rule.type, energy: gained, particleId: particle.id };
   p.log.push(event);
   state.lastSynthEvents.push(event);
-  return { ok: true, particle, energy: r.rule.energy };
+  return { ok: true, particle, energy: gained };
 }
 
-function synthesizeAtom(state, particleIds, electronCount) {
+// Anti Hero: a player only collects binding energy for creations matching
+// their world. Returns the actual gain (0 if wrong world).
+function worldGainFor(state, player, rule) {
+  if (!state.config.variants.antiHero) return rule.energy;
+  if (player.world === 'both' || player.world == null) return rule.energy;
+  const wantsAnti = player.world === 'anti';
+  return (!!rule.anti === wantsAnti) ? rule.energy : 0;
+}
+
+function synthesizeAtom(state, particleIds, leptonCount) {
   if (state.phase !== 'synthesize') return { ok: false, error: 'Not in synthesize phase.' };
   const p = currentPlayer(state);
   const particles = particleIds.map(id => p.stockpile.particles.find(x => x.id === id)).filter(Boolean);
   if (particles.length !== particleIds.length) return { ok: false, error: 'One or more selected particles are not free in your stockpile.' };
-  if (electronCount < 0) return { ok: false, error: 'Electron count cannot be negative.' };
-  if (p.stockpile.electrons < electronCount) return { ok: false, error: `You only have ${p.stockpile.electrons} free electron${p.stockpile.electrons === 1 ? '' : 's'}.` };
-  const r = identifyAtom(particles, electronCount);
+  if (leptonCount < 0) return { ok: false, error: 'Lepton count cannot be negative.' };
+  const r = identifyAtom(particles, leptonCount);
   if (!r.ok) return { ok: false, error: r.reason };
-  // Consume particles + electrons; create atom.
+  // Anti-atoms consume positrons (in place of electrons) per the rulebook.
+  const pool = r.isAnti ? p.stockpile.positrons : p.stockpile.electrons;
+  const lepLabel = r.isAnti ? 'positron' : 'electron';
+  if (pool < leptonCount) return { ok: false, error: `You only have ${pool} free ${lepLabel}${pool === 1 ? '' : 's'}.` };
+  // Consume particles + leptons; create atom.
   p.stockpile.particles = p.stockpile.particles.filter(x => !particleIds.includes(x.id));
-  p.stockpile.electrons -= electronCount;
+  if (r.isAnti) p.stockpile.positrons -= leptonCount;
+  else          p.stockpile.electrons -= leptonCount;
   const atom = {
-    id: nextId(state, 'a'),
+    id: nextId(state, r.isAnti ? 'aa' : 'a'),
     type: r.rule.type,
     particles,
-    electrons: electronCount,
+    electrons: leptonCount,        // "electrons" in the atom struct means leptons used (e- OR e+)
     energy: r.rule.energy,
     createdTurn: state.turn,
     spinSum: r.spinSum,
   };
   p.stockpile.atoms.push(atom);
-  p.energy += r.rule.energy;
-  const event = { kind: 'synth-atom', atomType: r.rule.type, energy: r.rule.energy, atomId: atom.id };
+  const gained = worldGainFor(state, p, r.rule);
+  p.energy += gained;
+  const event = { kind: 'synth-atom', atomType: r.rule.type, energy: gained, atomId: atom.id };
   p.log.push(event);
   state.lastSynthEvents.push(event);
-  return { ok: true, atom, energy: r.rule.energy };
+  return { ok: true, atom, energy: gained };
 }
 
 function decayTritium(state, atomId) {
@@ -337,18 +498,20 @@ function decayTritium(state, atomId) {
   const p = currentPlayer(state);
   const atom = p.stockpile.atoms.find(a => a.id === atomId);
   if (!atom) return { ok: false, error: 'Atom not found in your stockpile.' };
-  if (atom.type !== 'T') return { ok: false, error: 'Only Tritium can be voluntarily decayed.' };
-  // One bound neutron decays into a proton; atom becomes Helium-3; player gains 1 free electron.
-  // Binding energy already collected when T was synthesized — not refunded or re-collected.
-  const ni = atom.particles.findIndex(x => x.type === 'neutron');
-  if (ni === -1) return { ok: false, error: 'No neutron available in this atom (corrupted state).' };
-  const newProton = makeSyntheticProton(state);
+  const isAnti = atom.type === 'antiT';
+  if (atom.type !== 'T' && !isAnti) return { ok: false, error: 'Only Tritium or Anti-Tritium can be voluntarily decayed.' };
+  // One bound (anti-)neutron decays into a (anti-)proton; atom becomes
+  // (Anti-)Helium-3; player gains 1 free electron (or positron for anti).
+  const nType = isAnti ? 'antineutron' : 'neutron';
+  const ni = atom.particles.findIndex(x => x.type === nType);
+  if (ni === -1) return { ok: false, error: 'No (anti-)neutron available in this atom (corrupted state).' };
+  const newProton = makeSyntheticProton(state, isAnti);
   atom.particles.splice(ni, 1, newProton);
-  atom.type = 'He3';
-  atom.electrons = 2;     // capture the released electron internally as a bound electron
-  atom.energy = ATOM_RULES.find(a => a.type === 'He3').energy;
+  atom.type = isAnti ? 'antiHe3' : 'He3';
+  atom.electrons = 2;
+  atom.energy = ATOM_RULES.find(a => a.type === atom.type).energy;
   atom.spinSum = spinSumOfParticles(atom.particles);
-  p.stockpile.electrons += 1;
+  if (isAnti) p.stockpile.positrons += 1; else p.stockpile.electrons += 1;
   const event = { kind: 'tritium-decay', atomId };
   p.log.push(event);
   state.lastSynthEvents.push(event);
@@ -432,40 +595,61 @@ function processDecays(state) {
   const events = [];
   const numPlayers = state.players.length;
 
-  // 1. Forced decay of all Delta particles in this player's stockpile.
-  const deltas = p.stockpile.particles.filter(x => x.type.startsWith('delta'));
+  // 0. Pion decays (Advanced). All pions in the stockpile decay immediately:
+  //    pi+ → +1 positron, pi- → +1 electron, pi0 → nothing. Cards are dropped.
+  const pions = p.stockpile.particles.filter(x => x.type === 'pi+' || x.type === 'pi-' || x.type === 'pi0');
+  for (const pi of pions) {
+    p.stockpile.particles = p.stockpile.particles.filter(x => x.id !== pi.id);
+    const d = pi.decay || { electrons: 0, positrons: 0 };
+    p.stockpile.electrons += d.electrons;
+    p.stockpile.positrons += d.positrons;
+    events.push({
+      kind: 'decay', from: pi.type, to: 'leptons',
+      gainedElectrons: d.electrons, gainedPositrons: d.positrons,
+    });
+  }
+
+  // 1. Forced decay of all Delta and Anti-Delta particles in this player's stockpile.
+  const deltas = p.stockpile.particles.filter(x => x.type.startsWith('delta') || x.type.startsWith('antidelta'));
   for (const d of deltas) {
     const rule = PARTICLE_RULES.find(r => r.type === d.type);
     p.stockpile.particles = p.stockpile.particles.filter(x => x.id !== d.id);
-    const proton = makeSyntheticProton(state);
+    const isAnti = !!rule.anti;
+    const proton = makeSyntheticProton(state, isAnti);
     p.stockpile.particles.push(proton);
     p.stockpile.electrons += rule.decay.electrons;
     p.stockpile.positrons += rule.decay.positrons;
     events.push({
       kind: 'decay',
-      from: d.type, to: 'proton',
+      from: d.type, to: isAnti ? 'antiproton' : 'proton',
       gainedElectrons: rule.decay.electrons,
       gainedPositrons: rule.decay.positrons,
     });
   }
 
-  // 2. Cat-marked neutrons whose cat was placed in a prior turn-of-this-player decay.
+  // 2. Cat-marked (anti-)neutrons whose cat was placed in a prior turn-of-this-player decay.
   //    catPlacedTurn was set on this player's previous turn; a full round
   //    (numPlayers turns) elapses before the marker triggers.
   const toDecay = p.stockpile.particles.filter(
-    n => n.type === 'neutron' && n.catMarker && (state.turn - n.catPlacedTurn) >= numPlayers
+    n => (n.type === 'neutron' || n.type === 'antineutron')
+      && n.catMarker && (state.turn - n.catPlacedTurn) >= numPlayers
   );
   for (const n of toDecay) {
+    const isAnti = n.type === 'antineutron';
     p.stockpile.particles = p.stockpile.particles.filter(x => x.id !== n.id);
-    const proton = makeSyntheticProton(state);
+    const proton = makeSyntheticProton(state, isAnti);
     p.stockpile.particles.push(proton);
-    p.stockpile.electrons += 1;
-    events.push({ kind: 'decay', from: 'neutron', to: 'proton', gainedElectrons: 1, gainedPositrons: 0 });
+    if (isAnti) p.stockpile.positrons += 1; else p.stockpile.electrons += 1;
+    events.push({
+      kind: 'decay',
+      from: n.type, to: isAnti ? 'antiproton' : 'proton',
+      gainedElectrons: isAnti ? 0 : 1, gainedPositrons: isAnti ? 1 : 0,
+    });
   }
 
-  // 3. Place cat marker on any free neutron without one (they survived this turn unbound).
+  // 3. Place cat marker on any free (anti-)neutron without one.
   for (const n of p.stockpile.particles) {
-    if (n.type === 'neutron' && !n.catMarker) {
+    if ((n.type === 'neutron' || n.type === 'antineutron') && !n.catMarker) {
       n.catMarker = true;
       n.catPlacedTurn = state.turn;
       events.push({ kind: 'cat-marker', particleId: n.id });
@@ -537,13 +721,65 @@ function endGame(state) {
       p.log.push({ kind: 'annihilation', pairs, energy: gained });
     }
   }
+  // Nothing Left Behind (Advanced variant): pair each free particle with its
+  // anti-particle and remove the pair. Same for atoms vs anti-atoms. We track
+  // the count of particles left for the win check.
+  if (state.config.variants.nothingLeft) {
+    for (const p of state.players) {
+      const pairedAtoms = pairOffByAntiparticle(p.stockpile.atoms, x => x.type);
+      p.stockpile.atoms = pairedAtoms.kept;
+      const pairedParts = pairOffByAntiparticle(p.stockpile.particles, x => x.type);
+      p.stockpile.particles = pairedParts.kept;
+      p.particlesLeft =
+        p.stockpile.atoms.length + p.stockpile.particles.length +
+        p.stockpile.electrons + p.stockpile.positrons;
+      const removed = pairedAtoms.removed + pairedParts.removed;
+      if (removed > 0) {
+        p.log.push({ kind: 'nlb-annihilation', pairsRemoved: removed });
+      }
+    }
+  }
   state.phase = 'over';
+}
+
+// Pair off items whose types are antiparticles of each other (per
+// ANTIPARTICLE_OF). Returns the still-unmatched items plus the count of
+// removed pairs.
+function pairOffByAntiparticle(items, typeOf) {
+  const byType = new Map();
+  let removed = 0;
+  for (const it of items) {
+    const t = typeOf(it);
+    const anti = ANTIPARTICLE_OF[t];
+    const bucket = anti && byType.get(anti);
+    if (bucket && bucket.length > 0) {
+      bucket.pop();
+      removed++;
+      continue;
+    }
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t).push(it);
+  }
+  const kept = [];
+  for (const bucket of byType.values()) kept.push(...bucket);
+  return { kept, removed };
 }
 
 function winners(state) {
   if (!state.players.length) return [];
+  const v = state.config.variants || {};
+  // Nothing Left Behind: fewest particles left wins; ties broken by energy.
+  if (v.nothingLeft) {
+    const minLeft = Math.min(...state.players.map(p => p.particlesLeft != null ? p.particlesLeft : (p.stockpile.atoms.length + p.stockpile.particles.length + p.stockpile.electrons + p.stockpile.positrons)));
+    let top = state.players.filter(p => (p.particlesLeft != null ? p.particlesLeft : (p.stockpile.atoms.length + p.stockpile.particles.length + p.stockpile.electrons + p.stockpile.positrons)) === minLeft);
+    if (top.length > 1) {
+      const maxE = Math.max(...top.map(p => p.energy));
+      top = top.filter(p => p.energy === maxE);
+    }
+    return top;
+  }
   // Helium Prize: most He-3/He-4 atoms wins; ties broken by energy.
-  if (state.config.variants && state.config.variants.heliumPrize) {
+  if (v.heliumPrize) {
     const maxH = Math.max(...state.players.map(heliumCount));
     let top = state.players.filter(p => heliumCount(p) === maxH);
     if (top.length > 1) {
@@ -560,13 +796,14 @@ window.QuarkGame = {
   // constants/data
   FLAVOR_CHARGE, FLAVOR_LABEL, COLOR_LABEL, SPIN_GLYPH,
   PARTICLE_RULES, PARTICLE_LABEL,
-  ATOM_RULES, ATOM_LABEL,
+  MESON_RULES, ATOM_RULES, ATOM_LABEL,
+  ANTIPARTICLE_OF,
   ANNIHILATION_ENERGY,
   VARIANT_LABEL, VARIANT_DESC,
   eV, MeV, GeV,
   // helpers
   formatEnergy, describeCard,
-  identifyParticle, identifyAtom,
+  identifyParticle, identifyMeson, identifyAtom,
   pauliPenalty, freeChargeCount, heliumCount,
   handLimitOf, discardRequired,
   // state lifecycle

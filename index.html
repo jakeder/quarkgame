@@ -97,7 +97,23 @@
             <input type="checkbox" id="variant-helium" />
             <span><strong>Helium Prize</strong><br><small class="muted">Win by most Helium-3/Helium-4 atoms (ties broken by energy) instead of most energy.</small></span>
           </label>
+          <label class="variant-row">
+            <input type="checkbox" id="advanced-mode" />
+            <span><strong>Advanced game</strong> <small class="muted">(meet the mesons)</small><br><small class="muted">Adds 12 anti-quark cards, anti-baryons / anti-atoms, and pions (q + q̄). Pions auto-decay each turn.</small></span>
+          </label>
+          <label class="variant-row variant-advanced">
+            <input type="checkbox" id="variant-antihero" disabled />
+            <span><strong>Anti Hero</strong> <small class="muted">(Advanced)</small><br><small class="muted">Each player picks a world. Only earn energy for creations in your world.</small></span>
+          </label>
+          <label class="variant-row variant-advanced">
+            <input type="checkbox" id="variant-nothingleft" disabled />
+            <span><strong>Nothing Left Behind</strong> <small class="muted">(Advanced)</small><br><small class="muted">Pair particles and anti-particles at end of game. Fewest left wins.</small></span>
+          </label>
         </fieldset>
+        <div id="worlds-picker" hidden>
+          <h3>Pick each player's world (Anti Hero)</h3>
+          <div id="worlds-list"></div>
+        </div>
         <div id="player-names"></div>
         <button id="start">Start game</button>
       </div>
@@ -139,6 +155,18 @@
             <label class="variant-row">
               <input type="checkbox" id="online-variant-helium" />
               <span><strong>Helium Prize</strong><br><small class="muted">Most Helium-3/-4 atoms wins.</small></span>
+            </label>
+            <label class="variant-row">
+              <input type="checkbox" id="online-advanced-mode" />
+              <span><strong>Advanced game</strong><br><small class="muted">Anti-quarks, anti-baryons / anti-atoms, pions.</small></span>
+            </label>
+            <label class="variant-row variant-advanced">
+              <input type="checkbox" id="online-variant-antihero" disabled />
+              <span><strong>Anti Hero</strong> <small class="muted">(Advanced)</small></span>
+            </label>
+            <label class="variant-row variant-advanced">
+              <input type="checkbox" id="online-variant-nothingleft" disabled />
+              <span><strong>Nothing Left Behind</strong> <small class="muted">(Advanced)</small></span>
             </label>
           </fieldset>
           <button id="create-room-btn">Create room</button>

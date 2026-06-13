@@ -14,6 +14,61 @@
   // Hand-limit checkbox enables/disables its number input (local + online).
   bindLimitToggle('limit-hand', 'hand-limit');
   bindLimitToggle('online-limit-hand', 'online-hand-limit');
+
+  // Advanced toggle gates the Advanced-only variants and the world picker.
+  bindAdvancedToggle({
+    adv: 'advanced-mode',
+    deps: ['variant-antihero', 'variant-nothingleft'],
+    pcCount: 'player-count',
+    pickerWrap: 'worlds-picker',
+    pickerList: 'worlds-list',
+    pickerPrefix: 'world-',
+  });
+  bindAdvancedToggle({
+    adv: 'online-advanced-mode',
+    deps: ['online-variant-antihero', 'online-variant-nothingleft'],
+  });
+  function bindAdvancedToggle({ adv, deps, pcCount, pickerWrap, pickerList, pickerPrefix }) {
+    const advEl = document.getElementById(adv);
+    if (!advEl) return;
+    function refresh() {
+      const on = advEl.checked;
+      deps.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = !on;
+        if (!on) el.checked = false;
+      });
+      if (pickerWrap) refreshWorldsPicker();
+    }
+    advEl.addEventListener('change', refresh);
+    const anti = document.getElementById('variant-antihero');
+    if (anti) anti.addEventListener('change', () => pickerWrap && refreshWorldsPicker());
+    if (pcCount) {
+      document.getElementById(pcCount).addEventListener('change', () =>
+        pickerWrap && refreshWorldsPicker());
+    }
+    function refreshWorldsPicker() {
+      const wrap = document.getElementById(pickerWrap);
+      const list = document.getElementById(pickerList);
+      const show = advEl.checked && document.getElementById('variant-antihero').checked;
+      wrap.hidden = !show;
+      if (!show) return;
+      const count = parseInt(document.getElementById(pcCount).value, 10);
+      list.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const row = document.createElement('div');
+        row.className = 'setup-row';
+        row.innerHTML =
+          '<label>Player ' + (i + 1) + '</label>' +
+          '<select id="' + pickerPrefix + i + '">' +
+            '<option value="actual">Actual world</option>' +
+            '<option value="anti">Anti world</option>' +
+          '</select>';
+        list.appendChild(row);
+      }
+    }
+  }
   function bindLimitToggle(cbId, numId) {
     const cb = document.getElementById(cbId);
     const num = document.getElementById(numId);
@@ -156,16 +211,19 @@
     const name = (document.getElementById('online-host-name').value || '').trim() || 'Host';
     const drawSize  = clampInt(document.getElementById('online-draw-size').value, 1, 10, 3);
     const maxRounds = clampInt(document.getElementById('online-max-rounds').value, 3, 20, 10);
+    const advanced = document.getElementById('online-advanced-mode').checked;
     const variants = {
       pauli:       document.getElementById('online-variant-pauli').checked,
       heliumPrize: document.getElementById('online-variant-helium').checked,
+      antiHero:    document.getElementById('online-variant-antihero').checked,
+      nothingLeft: document.getElementById('online-variant-nothingleft').checked,
     };
     const handLimit = readHandLimit('online-limit-hand', 'online-hand-limit');
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
     try {
       const { code, uid } = await mp.createRoom(name);
-      enterLobby(code, uid, true, { drawSize, maxRounds, handLimit, variants });
+      enterLobby(code, uid, true, { drawSize, maxRounds, handLimit, advanced, variants });
     } catch (e) {
       showOnlineError(e.message || String(e));
     }
@@ -335,12 +393,18 @@
       names.push(raw || 'Player ' + (i + 1));
     }
     if (S.get('rememberNames')) S.set('lastNames', rawNames);
+    const advanced = document.getElementById('advanced-mode').checked;
     const variants = {
       pauli:       document.getElementById('variant-pauli').checked,
       heliumPrize: document.getElementById('variant-helium').checked,
+      antiHero:    document.getElementById('variant-antihero').checked,
+      nothingLeft: document.getElementById('variant-nothingleft').checked,
     };
     const handLimit = readHandLimit('limit-hand', 'hand-limit');
-    state = Q.createGame(names, { drawSize, maxRounds, handLimit, variants });
+    const worlds = (advanced && variants.antiHero)
+      ? Array.from({ length: count }, (_, i) => (document.getElementById('world-' + i) || { value: 'actual' }).value)
+      : null;
+    state = Q.createGame(names, { drawSize, maxRounds, handLimit, advanced, variants, worlds });
     passScreenAcknowledged = true; // first player goes straight in
     clearSelections();
     document.getElementById('setup').hidden = true;
@@ -718,10 +782,16 @@
   function renderCard(card, selected) {
     const el = document.createElement('div');
     el.className = 'card flavor-' + card.flavor + ' color-' + card.color +
-                   (selected ? ' selected' : '') + (card.synthetic ? ' synthetic' : '');
+                   (selected ? ' selected' : '') + (card.synthetic ? ' synthetic' : '') +
+                   (card.anti ? ' anti' : '');
+    // Anti-quarks: an overbar on the flavor letter, "aR"/"aG"/"aB" color tag.
+    const symbol = card.anti ? card.flavor + '̄' : card.flavor;
+    const charge = card.anti
+      ? (card.flavor === 'u' ? '−2/3' : '+1/3')
+      : Q.FLAVOR_CHARGE[card.flavor];
     el.innerHTML =
-      '<div class="card-charge">' + Q.FLAVOR_CHARGE[card.flavor] + '</div>' +
-      '<div class="card-symbol">' + card.flavor + '</div>' +
+      '<div class="card-charge">' + charge + '</div>' +
+      '<div class="card-symbol">' + symbol + '</div>' +
       '<div class="card-spin">' + Q.SPIN_GLYPH[card.spin] + '</div>';
     el.title = Q.describeCard(card);
     return el;
@@ -764,21 +834,29 @@
   function renderParticleTile(particle) {
     const selected = selectedParticles.has(particle.id);
     const el = document.createElement('div');
-    const rule = Q.PARTICLE_RULES.find(r => r.type === particle.type);
+    const isMeson = /^pi/.test(particle.type);
+    const baryonRule = Q.PARTICLE_RULES.find(r => r.type === particle.type);
+    const mesonRule  = isMeson ? Q.MESON_RULES.find(r => r.type === particle.type) : null;
+    const rule = baryonRule || mesonRule || { energy: 0, stable: true };
+    const stable = isMeson ? false : (baryonRule ? baryonRule.stable : true);
     el.className = 'tile particle ' + particle.type.replace(/[+\-]/g, '-')
       + (selected ? ' selected' : '') + (particle.synthetic ? ' synthetic' : '')
-      + (rule && !rule.stable ? ' unstable' : '');
-    const cards = particle.cards.map(c =>
-      '<span class="mini-card flavor-' + c.flavor + ' color-' + c.color + '">' +
-      c.flavor + Q.SPIN_GLYPH[c.spin] + '</span>'
-    ).join('');
+      + (isMeson ? ' pi' : '')
+      + (rule.anti ? ' anti' : '')
+      + (!stable ? ' unstable' : '');
+    const cards = particle.cards.map(c => {
+      const sym = c.anti ? c.flavor + '̄' : c.flavor;
+      return '<span class="mini-card flavor-' + c.flavor + ' color-' + c.color + '">' +
+        sym + Q.SPIN_GLYPH[c.spin] + '</span>';
+    }).join('');
     el.innerHTML =
       '<div class="tile-head"><strong>' + Q.PARTICLE_LABEL[particle.type] + '</strong>' +
       (particle.catMarker ? ' <span class="cat" title="Schrödinger\'s Cat: decays at end of your next turn">🐈‍⬛</span>' : '') +
       '</div>' +
       '<div class="tile-cards">' + cards + '</div>' +
       '<div class="tile-energy">' + Q.formatEnergy(rule.energy) +
-        ' · spin ' + signed(particleSpinSum(particle)) + '</div>';
+        ' · spin ' + signed(particleSpinSum(particle)) +
+        (isMeson ? ' · decays this turn' : '') + '</div>';
     return el;
   }
 
@@ -800,11 +878,16 @@
     const isAnion = atom.type === 'H' && atom.anion;
     el.className = 'tile atom atom-' + atom.type +
       (rule && !rule.stable ? ' unstable' : '') + (isAnion ? ' anion' : '');
+    const partGlyph = (t) => ({
+      proton: 'p⁺', neutron: 'n⁰', antiproton: 'p̄⁻', antineutron: 'n̄⁰',
+    })[t] || t;
     const parts = atom.particles.map(p =>
-      '<span class="mini-particle">' + (p.type === 'proton' ? 'p⁺' : 'n⁰') + '</span>'
+      '<span class="mini-particle">' + partGlyph(p.type) + '</span>'
     ).join('');
+    const isAnti = !!(rule && rule.anti);
     const eCount = atom.electrons + (isAnion ? 1 : 0);
-    const electrons = '<span class="mini-electron">e⁻ × ' + eCount + '</span>';
+    const lepGlyph = isAnti ? 'e⁺' : 'e⁻';
+    const electrons = '<span class="mini-electron">' + lepGlyph + ' × ' + eCount + '</span>';
     const label = Q.ATOM_LABEL[atom.type] + (isAnion ? ' → H⁻' : '');
     el.innerHTML =
       '<div class="tile-head"><strong>' + label + '</strong></div>' +
@@ -878,10 +961,19 @@
     const atomBtn = document.getElementById('build-atom-btn');
     const synthing = state && state.phase === 'synthesize';
     const myTurn = isMyTurn();
-    synthBtn.disabled = !synthing || !myTurn || selectedHandCards.size !== 3;
-    synthBtn.textContent = selectedHandCards.size === 3
-      ? 'Synthesize particle from 3 selected cards'
-      : 'Synthesize particle (need 3 cards, ' + selectedHandCards.size + ' selected)';
+    const adv = !!(state && state.config && state.config.advanced);
+    const n = selectedHandCards.size;
+    const validCount = adv ? (n === 2 || n === 3) : (n === 3);
+    synthBtn.disabled = !synthing || !myTurn || !validCount;
+    if (n === 3) {
+      synthBtn.textContent = 'Synthesize baryon from 3 selected cards';
+    } else if (adv && n === 2) {
+      synthBtn.textContent = 'Synthesize pion from 2 selected cards';
+    } else {
+      synthBtn.textContent = adv
+        ? 'Synthesize particle (2 for pion, 3 for baryon · ' + n + ' selected)'
+        : 'Synthesize particle (need 3 cards, ' + n + ' selected)';
+    }
     atomBtn.disabled = !synthing || !myTurn || selectedParticles.size === 0;
     atomBtn.textContent = selectedParticles.size === 0
       ? 'Build atom from selected particles'
