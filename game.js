@@ -52,6 +52,51 @@ const ATOM_LABEL = {
 
 const ANNIHILATION_ENERGY = 1.02 * MeV;
 
+// ── Optional variants (Charge Neutrality Agreement) ─────────────────────────
+const VARIANT_LABEL = {
+  pauli:       'Pauli Penalty',
+  heliumPrize: 'Helium Prize',
+};
+const VARIANT_DESC = {
+  pauli:       'Pay an energy penalty each turn for free charges left in your stockpile. Annihilate positrons any time; H⁻ anions are exempt.',
+  heliumPrize: 'Win by synthesizing the most Helium-3 and Helium-4 atoms (ties broken by energy) instead of the most energy.',
+};
+
+// Pauli Penalty paid at the end of each turn for N free charges (free protons +
+// positrons + free electrons) in the Material Stockpile. The penalty grows with
+// the N(N−1)/2 pairwise interactions per the rulebook table.
+const PAULI_PENALTY = [
+  0,            // N = 0
+  0,            // N = 1
+  13.6 * eV,    // N = 2
+  1.022 * MeV,  // N = 3
+  2.22 * MeV,   // N = 4
+  7.72 * MeV,   // N = 5
+  8.48 * MeV,   // N = 6
+  28.3 * MeV,   // N = 7
+  938.3 * MeV,  // N = 8
+  939.5 * MeV,  // N = 9
+];
+const PAULI_PENALTY_MAX = 1.232 * GeV; // N >= 10
+
+function pauliPenalty(n) {
+  if (n <= 1) return 0;
+  if (n < PAULI_PENALTY.length) return PAULI_PENALTY[n];
+  return PAULI_PENALTY_MAX;
+}
+
+// Free charges = free protons + free positrons + free electrons. Electrons bound
+// inside atoms (including the extra electron of an H⁻ anion) are not free and
+// don't count.
+function freeChargeCount(player) {
+  const freeProtons = player.stockpile.particles.filter(p => p.type === 'proton').length;
+  return freeProtons + player.stockpile.positrons + player.stockpile.electrons;
+}
+
+function heliumCount(player) {
+  return player.stockpile.atoms.filter(a => a.type === 'He3' || a.type === 'He4').length;
+}
+
 function shuffle(arr, rng) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -187,6 +232,10 @@ function createGame(playerNames, opts) {
   const drawSize  = o.drawSize  != null ? o.drawSize  : 3;
   const maxRounds = o.maxRounds != null ? o.maxRounds : 10;
   const rng       = o.rng || Math.random;
+  const variants = {
+    pauli:       !!(o.variants && o.variants.pauli),
+    heliumPrize: !!(o.variants && o.variants.heliumPrize),
+  };
   const state = {
     _nextId: 1,
     deck: shuffle(buildDeck(), rng),
@@ -203,9 +252,10 @@ function createGame(playerNames, opts) {
     turn: 1,           // global turn counter (increments every player change)
     round: 1,          // increments when player index wraps to 0
     phase: 'synthesize',  // 'synthesize' | 'decays' | 'between' | 'over'
-    config: { drawSize, maxRounds },
+    config: { drawSize, maxRounds, variants },
     lastDecayEvents: [],
     lastSynthEvents: [],
+    lastPenalty: null,
   };
   // Initial draw for the first player.
   drawForCurrentPlayer(state);
@@ -302,6 +352,45 @@ function decayTritium(state, atomId) {
   return { ok: true };
 }
 
+// Pauli Penalty amendment 1: annihilate one e⁻/e⁺ pair at any time during your
+// turn (collecting the annihilation energy), instead of waiting for end of game.
+function annihilatePair(state) {
+  if (state.phase !== 'synthesize') return { ok: false, error: 'Annihilate during the synthesize phase.' };
+  if (!state.config.variants.pauli) return { ok: false, error: 'Annihilate-on-demand is a Pauli Penalty rule.' };
+  const p = currentPlayer(state);
+  if (p.stockpile.electrons < 1 || p.stockpile.positrons < 1) {
+    return { ok: false, error: 'Need at least one free electron and one free positron.' };
+  }
+  p.stockpile.electrons -= 1;
+  p.stockpile.positrons -= 1;
+  p.energy += ANNIHILATION_ENERGY;
+  p.annihilations = (p.annihilations || 0) + 1;
+  const event = { kind: 'annihilation', pairs: 1, energy: ANNIHILATION_ENERGY };
+  p.log.push(event);
+  return { ok: true, energy: ANNIHILATION_ENERGY };
+}
+
+// Pauli Penalty amendment 2: add/remove a free electron to a Hydrogen atom to
+// make an H⁻ anion (free of charge). The bound electron leaves the free pool and
+// is exempt from the penalty count.
+function toggleAnion(state, atomId) {
+  if (state.phase !== 'synthesize') return { ok: false, error: 'Adjust anions during the synthesize phase.' };
+  if (!state.config.variants.pauli) return { ok: false, error: 'H⁻ anions are a Pauli Penalty rule.' };
+  const p = currentPlayer(state);
+  const atom = p.stockpile.atoms.find(a => a.id === atomId);
+  if (!atom) return { ok: false, error: 'Atom not found in your stockpile.' };
+  if (atom.type !== 'H') return { ok: false, error: 'Only Hydrogen can become an H⁻ anion.' };
+  if (atom.anion) {
+    atom.anion = false;
+    p.stockpile.electrons += 1;
+    return { ok: true, anion: false };
+  }
+  if (p.stockpile.electrons < 1) return { ok: false, error: 'No free electron available to add.' };
+  p.stockpile.electrons -= 1;
+  atom.anion = true;
+  return { ok: true, anion: true };
+}
+
 function endSynthesis(state) {
   if (state.phase !== 'synthesize') return { ok: false, error: 'Not in synthesize phase.' };
   processDecays(state);
@@ -361,6 +450,19 @@ function processDecays(state) {
 
 function endTurn(state) {
   if (state.phase !== 'decays') return { ok: false, error: 'Process decays first.' };
+  // Charge the Pauli Penalty to the player whose turn is ending (before we
+  // advance), if the variant is in play.
+  state.lastPenalty = null;
+  if (state.config.variants.pauli) {
+    const ender = currentPlayer(state);
+    const n = freeChargeCount(ender);
+    const amount = pauliPenalty(n);
+    if (amount > 0) {
+      ender.energy -= amount;
+      ender.log.push({ kind: 'pauli-penalty', energy: -amount, n });
+    }
+    state.lastPenalty = { playerId: ender.id, name: ender.name, n, amount };
+  }
   const numPlayers = state.players.length;
   const wasLastPlayer = (state.currentPlayer + 1) % numPlayers === 0;
   state.currentPlayer = (state.currentPlayer + 1) % numPlayers;
@@ -406,6 +508,16 @@ function endGame(state) {
 
 function winners(state) {
   if (!state.players.length) return [];
+  // Helium Prize: most He-3/He-4 atoms wins; ties broken by energy.
+  if (state.config.variants && state.config.variants.heliumPrize) {
+    const maxH = Math.max(...state.players.map(heliumCount));
+    let top = state.players.filter(p => heliumCount(p) === maxH);
+    if (top.length > 1) {
+      const maxE = Math.max(...top.map(p => p.energy));
+      top = top.filter(p => p.energy === maxE);
+    }
+    return top;
+  }
   const max = Math.max(...state.players.map(p => p.energy));
   return state.players.filter(p => p.energy === max);
 }
@@ -416,12 +528,15 @@ window.QuarkGame = {
   PARTICLE_RULES, PARTICLE_LABEL,
   ATOM_RULES, ATOM_LABEL,
   ANNIHILATION_ENERGY,
+  VARIANT_LABEL, VARIANT_DESC,
   eV, MeV, GeV,
   // helpers
   formatEnergy, describeCard,
   identifyParticle, identifyAtom,
+  pauliPenalty, freeChargeCount, heliumCount,
   // state lifecycle
   createGame, currentPlayer,
   synthesizeParticle, synthesizeAtom, decayTritium,
+  annihilatePair, toggleAnion,
   endSynthesis, endTurn, beginTurn, endGame, winners,
 };

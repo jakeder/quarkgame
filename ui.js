@@ -17,6 +17,7 @@
   document.getElementById('end-synth-btn').addEventListener('click', onEndSynthesis);
   document.getElementById('end-turn-btn').addEventListener('click', onEndTurn);
   document.getElementById('atom-electron-count').addEventListener('input', updateActionButtons);
+  document.getElementById('annihilate-btn').addEventListener('click', onAnnihilate);
 
   // ---------- Settings panel wiring ----------
   const S = window.Settings;
@@ -140,11 +141,15 @@
     const name = (document.getElementById('online-host-name').value || '').trim() || 'Host';
     const drawSize  = clampInt(document.getElementById('online-draw-size').value, 1, 10, 3);
     const maxRounds = clampInt(document.getElementById('online-max-rounds').value, 3, 20, 10);
+    const variants = {
+      pauli:       document.getElementById('online-variant-pauli').checked,
+      heliumPrize: document.getElementById('online-variant-helium').checked,
+    };
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
     try {
       const { code, uid } = await mp.createRoom(name);
-      enterLobby(code, uid, true, { drawSize, maxRounds });
+      enterLobby(code, uid, true, { drawSize, maxRounds, variants });
     } catch (e) {
       showOnlineError(e.message || String(e));
     }
@@ -314,7 +319,11 @@
       names.push(raw || 'Player ' + (i + 1));
     }
     if (S.get('rememberNames')) S.set('lastNames', rawNames);
-    state = Q.createGame(names, { drawSize, maxRounds });
+    const variants = {
+      pauli:       document.getElementById('variant-pauli').checked,
+      heliumPrize: document.getElementById('variant-helium').checked,
+    };
+    state = Q.createGame(names, { drawSize, maxRounds, variants });
     passScreenAcknowledged = true; // first player goes straight in
     clearSelections();
     document.getElementById('setup').hidden = true;
@@ -447,13 +456,15 @@
     const buckets = aggregateEnergyLog(player.log);
     const rows = buckets.length === 0
       ? '<div class="ledger-empty">No energy collected yet.</div>'
-      : buckets.map(b =>
-          '<div class="ledger-row">' +
+      : buckets.map(b => {
+          const neg = b.total < 0;
+          const amt = (neg ? '−' : '+') + Q.formatEnergy(Math.abs(b.total));
+          return '<div class="ledger-row">' +
             '<span class="ledger-label">' + escapeHtml(b.label) + '</span>' +
             '<span class="ledger-count">×' + b.count + '</span>' +
-            '<span class="ledger-amount">+' + Q.formatEnergy(b.total) + '</span>' +
-          '</div>'
-        ).join('');
+            '<span class="ledger-amount' + (neg ? ' negative' : '') + '">' + amt + '</span>' +
+          '</div>';
+        }).join('');
     const total = Q.formatEnergy(player.energy);
     const [num, unit] = total.split(' ');
     wrap.innerHTML =
@@ -477,6 +488,9 @@
       } else if (event.kind === 'annihilation') {
         key = 'annihilation';
         label = 'e⁻/e⁺ annihilation';
+      } else if (event.kind === 'pauli-penalty') {
+        key = 'pauli-penalty';
+        label = 'Pauli Penalty';
       } else {
         continue;
       }
@@ -535,12 +549,15 @@
   function renderRecapBody() {
     const tbody = document.getElementById('round-recap-body');
     tbody.innerHTML = '';
-    [...state.players].sort((a, b) => b.energy - a.energy).forEach(p => {
+    rankedPlayers().forEach(p => {
       const tr = document.createElement('tr');
+      const atomsCell = variantsOn().heliumPrize
+        ? p.stockpile.atoms.length + ' (' + Q.heliumCount(p) + ' He)'
+        : String(p.stockpile.atoms.length);
       tr.innerHTML =
         '<td>' + escapeHtml(p.name) + '</td>' +
         '<td>' + Q.formatEnergy(p.energy) + '</td>' +
-        '<td>' + p.stockpile.atoms.length + '</td>' +
+        '<td>' + atomsCell + '</td>' +
         '<td>' + p.stockpile.particles.length + '</td>';
       tbody.appendChild(tr);
     });
@@ -576,12 +593,50 @@
     renderStockpile(viewP);
     renderDecays();
     renderEnergyLedger(viewP);
+    renderVariantBadges();
+    renderPauliReadout(viewP);
     updateActionButtons();
 
     const synthing = state.phase === 'synthesize';
     document.getElementById('synth-group-synthesize').hidden = !synthing;
     document.getElementById('end-turn-btn').hidden = synthing;
     document.getElementById('decays-section').hidden = synthing;
+  }
+
+  function variantsOn() { return (state && state.config && state.config.variants) || {}; }
+
+  function renderVariantBadges() {
+    const wrap = document.getElementById('variant-badges');
+    const v = variantsOn();
+    const active = Object.keys(Q.VARIANT_LABEL).filter(k => v[k]);
+    wrap.innerHTML = active
+      .map(k => '<span class="variant-badge" title="' + escapeHtmlAttr(Q.VARIANT_DESC[k]) + '">' +
+                escapeHtml(Q.VARIANT_LABEL[k]) + '</span>')
+      .join('');
+  }
+
+  // Live Pauli readout: how much you'd pay if you ended the turn right now.
+  function renderPauliReadout(viewP) {
+    const el = document.getElementById('pauli-readout');
+    if (!variantsOn().pauli) { el.hidden = true; return; }
+    const n = Q.freeChargeCount(viewP);
+    const penalty = Q.pauliPenalty(n);
+    const canReduce = (!online || isMyTurn()) && state.phase === 'synthesize';
+    el.hidden = false;
+    el.className = 'pauli-readout' + (penalty > 0 ? ' charged' : '');
+    el.innerHTML =
+      '<strong>Pauli Penalty</strong> — ' + n + ' free charge' + (n === 1 ? '' : 's') +
+      ' in stockpile · ending now costs <strong>' + Q.formatEnergy(penalty) + '</strong>' +
+      (penalty > 0 && canReduce ? ' <span class="muted">(annihilate e⁻e⁺ or make H⁻ to reduce)</span>' : '');
+  }
+
+  async function onAnnihilate() {
+    if (!isMyTurn()) return;
+    const r = Q.annihilatePair(state);
+    if (!r.ok) return showSynthError(r.error);
+    hideSynthError();
+    if (online) { await syncState(); return; }
+    render();
   }
 
   function renderHand(player) {
@@ -621,6 +676,12 @@
   function renderStockpile(player) {
     document.getElementById('electron-count').textContent = player.stockpile.electrons;
     document.getElementById('positron-count').textContent = player.stockpile.positrons;
+    // Pauli amendment 1: annihilate-on-demand button.
+    const annBtn = document.getElementById('annihilate-btn');
+    const canAnnihilate = variantsOn().pauli && state.phase === 'synthesize' && isMyTurn()
+      && player.stockpile.electrons > 0 && player.stockpile.positrons > 0;
+    annBtn.hidden = !(variantsOn().pauli && state.phase === 'synthesize');
+    annBtn.disabled = !canAnnihilate;
     renderParticles(player);
     renderAtoms(player);
   }
@@ -682,14 +743,17 @@
   function renderAtomTile(atom) {
     const el = document.createElement('div');
     const rule = Q.ATOM_RULES.find(r => r.type === atom.type);
+    const isAnion = atom.type === 'H' && atom.anion;
     el.className = 'tile atom atom-' + atom.type +
-      (rule && !rule.stable ? ' unstable' : '');
+      (rule && !rule.stable ? ' unstable' : '') + (isAnion ? ' anion' : '');
     const parts = atom.particles.map(p =>
       '<span class="mini-particle">' + (p.type === 'proton' ? 'p⁺' : 'n⁰') + '</span>'
     ).join('');
-    const electrons = '<span class="mini-electron">e⁻ × ' + atom.electrons + '</span>';
+    const eCount = atom.electrons + (isAnion ? 1 : 0);
+    const electrons = '<span class="mini-electron">e⁻ × ' + eCount + '</span>';
+    const label = Q.ATOM_LABEL[atom.type] + (isAnion ? ' → H⁻' : '');
     el.innerHTML =
-      '<div class="tile-head"><strong>' + Q.ATOM_LABEL[atom.type] + '</strong></div>' +
+      '<div class="tile-head"><strong>' + label + '</strong></div>' +
       '<div class="tile-particles">' + parts + ' ' + electrons + '</div>' +
       '<div class="tile-energy">' + Q.formatEnergy(atom.energy) + '</div>';
     if (atom.type === 'T' && state.phase === 'synthesize') {
@@ -701,6 +765,22 @@
         if (!isMyTurn()) return showSynthError("It's not your turn.");
         const r = Q.decayTritium(state, atom.id);
         if (!r.ok) return showSynthError(r.error);
+        if (online) { await syncState(); return; }
+        render();
+      });
+      el.appendChild(btn);
+    }
+    // Pauli amendment 2: toggle H ↔ H⁻ anion.
+    if (atom.type === 'H' && variantsOn().pauli && state.phase === 'synthesize') {
+      const btn = document.createElement('button');
+      btn.className = 'anion-toggle';
+      btn.textContent = isAnion ? 'Remove e⁻ (H⁻ → H)' : 'Add e⁻ (→ H⁻)';
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!isMyTurn()) return showSynthError("It's not your turn.");
+        const r = Q.toggleAnion(state, atom.id);
+        if (!r.ok) return showSynthError(r.error);
+        hideSynthError();
         if (online) { await syncState(); return; }
         render();
       });
@@ -820,25 +900,46 @@
 
   // ---------- Game over ----------
 
+  function winnerSummary(p) {
+    return variantsOn().heliumPrize
+      ? Q.heliumCount(p) + ' helium atom' + (Q.heliumCount(p) === 1 ? '' : 's')
+      : Q.formatEnergy(p.energy);
+  }
+
+  function rankedPlayers() {
+    if (variantsOn().heliumPrize) {
+      return [...state.players].sort((a, b) =>
+        Q.heliumCount(b) - Q.heliumCount(a) || b.energy - a.energy);
+    }
+    return [...state.players].sort((a, b) => b.energy - a.energy);
+  }
+
   function renderGameOver() {
     const ws = Q.winners(state);
+    const metric = variantsOn().heliumPrize ? 'Helium Prize' : 'energy';
     const winText = ws.length === 1
-      ? ws[0].name + ' wins with ' + Q.formatEnergy(ws[0].energy) + '!'
-      : 'Tie between ' + ws.map(w => w.name).join(', ') + ' at ' + Q.formatEnergy(ws[0].energy) + '.';
-    document.getElementById('winner-text').textContent = winText;
+      ? ws[0].name + ' wins with ' + winnerSummary(ws[0]) + '!'
+      : 'Tie between ' + ws.map(w => w.name).join(', ') + ' (' + winnerSummary(ws[0]) + ').';
+    document.getElementById('winner-text').textContent =
+      winText + (variantsOn().heliumPrize ? '' : '');
     const totalAnn = state.players.reduce((s, p) => s + (p.annihilations || 0), 0);
-    document.getElementById('annihilation-text').textContent =
-      totalAnn > 0
-        ? 'Dirac\'s Dubious Deed: ' + totalAnn + ' e⁻/e⁺ pair' + (totalAnn === 1 ? '' : 's') + ' annihilated for ' + Q.formatEnergy(totalAnn * Q.ANNIHILATION_ENERGY) + '.'
-        : 'No annihilations.';
+    const notes = [];
+    if (variantsOn().heliumPrize) notes.push('Won by ' + metric + ' (most Helium-3/-4 atoms).');
+    notes.push(totalAnn > 0
+      ? 'Dirac\'s Dubious Deed: ' + totalAnn + ' e⁻/e⁺ pair' + (totalAnn === 1 ? '' : 's') + ' annihilated for ' + Q.formatEnergy(totalAnn * Q.ANNIHILATION_ENERGY) + '.'
+      : 'No annihilations.');
+    document.getElementById('annihilation-text').textContent = notes.join(' ');
     const tbody = document.getElementById('final-scoreboard-body');
     tbody.innerHTML = '';
-    [...state.players].sort((a, b) => b.energy - a.energy).forEach(p => {
+    rankedPlayers().forEach(p => {
       const tr = document.createElement('tr');
+      const atomsCell = variantsOn().heliumPrize
+        ? p.stockpile.atoms.length + ' (' + Q.heliumCount(p) + ' He)'
+        : String(p.stockpile.atoms.length);
       tr.innerHTML =
         '<td>' + escapeHtml(p.name) + '</td>' +
         '<td>' + Q.formatEnergy(p.energy) + '</td>' +
-        '<td>' + p.stockpile.atoms.length + '</td>' +
+        '<td>' + atomsCell + '</td>' +
         '<td>' + p.stockpile.particles.length + '</td>' +
         '<td>' + (p.annihilations || 0) + '</td>';
       tbody.appendChild(tr);

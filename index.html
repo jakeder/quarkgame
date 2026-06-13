@@ -79,6 +79,17 @@
           <label for="max-rounds">Rounds</label>
           <input id="max-rounds" type="number" min="3" max="20" value="10" />
         </div>
+        <fieldset class="variants">
+          <legend>Variants <small class="muted">(optional)</small></legend>
+          <label class="variant-row">
+            <input type="checkbox" id="variant-pauli" />
+            <span><strong>Pauli Penalty</strong><br><small class="muted">Pay energy each turn for free charges left in your stockpile. Annihilate positrons any time; H⁻ anions exempt.</small></span>
+          </label>
+          <label class="variant-row">
+            <input type="checkbox" id="variant-helium" />
+            <span><strong>Helium Prize</strong><br><small class="muted">Win by most Helium-3/Helium-4 atoms (ties broken by energy) instead of most energy.</small></span>
+          </label>
+        </fieldset>
         <div id="player-names"></div>
         <button id="start">Start game</button>
       </div>
@@ -103,6 +114,17 @@
             <label for="online-max-rounds">Rounds</label>
             <input id="online-max-rounds" type="number" min="3" max="20" value="10" />
           </div>
+          <fieldset class="variants">
+            <legend>Variants <small class="muted">(optional)</small></legend>
+            <label class="variant-row">
+              <input type="checkbox" id="online-variant-pauli" />
+              <span><strong>Pauli Penalty</strong><br><small class="muted">Energy penalty each turn for free charges.</small></span>
+            </label>
+            <label class="variant-row">
+              <input type="checkbox" id="online-variant-helium" />
+              <span><strong>Helium Prize</strong><br><small class="muted">Most Helium-3/-4 atoms wins.</small></span>
+            </label>
+          </fieldset>
           <button id="create-room-btn">Create room</button>
         </div>
 
@@ -155,7 +177,9 @@
         <div class="stat">Round <strong id="round-number"></strong> / <span id="max-rounds-display"></span></div>
         <div class="stat">Deck: <strong id="deck-count"></strong></div>
         <div class="phase-chip" id="phase-chip"></div>
+        <div id="variant-badges" class="variant-badges"></div>
       </header>
+      <div id="pauli-readout" class="pauli-readout" hidden></div>
 
       <section class="hand-section">
         <h2>Your hand <small class="muted" id="hand-info"></small></h2>
@@ -183,6 +207,7 @@
         <div class="leptons">
           <span class="lepton-counter"><span class="lepton-glyph e-minus">e⁻</span> <strong id="electron-count">0</strong></span>
           <span class="lepton-counter"><span class="lepton-glyph e-plus">e⁺</span> <strong id="positron-count">0</strong></span>
+          <button id="annihilate-btn" class="secondary annihilate-btn" hidden>Annihilate e⁻e⁺ (+1.02 MeV)</button>
         </div>
         <h3>Free particles <small class="muted">(click to select for atom synthesis)</small></h3>
         <div id="particles" class="tiles"></div>
