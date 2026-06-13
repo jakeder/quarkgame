@@ -79,6 +79,14 @@
           <label for="max-rounds">Rounds</label>
           <input id="max-rounds" type="number" min="3" max="20" value="10" />
         </div>
+        <div class="setup-row">
+          <label for="limit-hand">Hand limit</label>
+          <span class="inline-toggle">
+            <input type="checkbox" id="limit-hand" />
+            <input id="hand-limit" type="number" min="1" max="20" value="7" disabled />
+            <small class="muted">discard down to this at end of turn</small>
+          </span>
+        </div>
         <fieldset class="variants">
           <legend>Variants <small class="muted">(optional)</small></legend>
           <label class="variant-row">
@@ -113,6 +121,14 @@
           <div class="setup-row">
             <label for="online-max-rounds">Rounds</label>
             <input id="online-max-rounds" type="number" min="3" max="20" value="10" />
+          </div>
+          <div class="setup-row">
+            <label for="online-limit-hand">Hand limit</label>
+            <span class="inline-toggle">
+              <input type="checkbox" id="online-limit-hand" />
+              <input id="online-hand-limit" type="number" min="1" max="20" value="7" disabled />
+              <small class="muted">discard down to this at end of turn</small>
+            </span>
           </div>
           <fieldset class="variants">
             <legend>Variants <small class="muted">(optional)</small></legend>
@@ -180,6 +196,7 @@
         <div id="variant-badges" class="variant-badges"></div>
       </header>
       <div id="pauli-readout" class="pauli-readout" hidden></div>
+      <div id="discard-banner" class="discard-banner" hidden></div>
 
       <section class="hand-section">
         <h2>Your hand <small class="muted" id="hand-info"></small></h2>

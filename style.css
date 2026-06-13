@@ -762,3 +762,36 @@ h1, .tagline, #setup, #pass-screen, #game-over {
 .tile.atom.anion { box-shadow: 0 0 0 1px var(--accent); }
 
 .ledger-amount.negative { color: var(--error); }
+
+/* ── Hand limit (setup + discard) ── */
+.inline-toggle { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.inline-toggle input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: var(--accent); }
+.inline-toggle input[type="number"] { width: 4.5rem; }
+
+.discard-banner {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: rgba(255, 209, 102, 0.1);
+  border: 1px solid var(--selected);
+  color: var(--text);
+}
+
+/* Cards become "discard targets" at end of turn when over the limit. */
+.cards.discardable .card.discard-target { cursor: pointer; }
+.cards.discardable .card.discard-target:hover {
+  border-color: var(--error);
+  box-shadow: 0 0 0 2px var(--error);
+  transform: translateY(-2px);
+}
+.cards.discardable .card.discard-target::before {
+  content: "✕";
+  position: absolute;
+  top: 0.2rem; left: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--error);
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+.cards.discardable .card.discard-target:hover::before { opacity: 1; }

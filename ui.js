@@ -11,6 +11,21 @@
   document.getElementById('pass-continue').addEventListener('click', onPassContinue);
   document.getElementById('new-game').addEventListener('click', () => location.reload());
 
+  // Hand-limit checkbox enables/disables its number input (local + online).
+  bindLimitToggle('limit-hand', 'hand-limit');
+  bindLimitToggle('online-limit-hand', 'online-hand-limit');
+  function bindLimitToggle(cbId, numId) {
+    const cb = document.getElementById(cbId);
+    const num = document.getElementById(numId);
+    if (!cb || !num) return;
+    cb.addEventListener('change', () => { num.disabled = !cb.checked; });
+  }
+  function readHandLimit(cbId, numId) {
+    const cb = document.getElementById(cbId);
+    if (!cb || !cb.checked) return null;
+    return clampInt(document.getElementById(numId).value, 1, 20, 7);
+  }
+
   // Game screen wiring
   document.getElementById('synth-particle-btn').addEventListener('click', onSynthParticle);
   document.getElementById('build-atom-btn').addEventListener('click', onBuildAtom);
@@ -145,11 +160,12 @@
       pauli:       document.getElementById('online-variant-pauli').checked,
       heliumPrize: document.getElementById('online-variant-helium').checked,
     };
+    const handLimit = readHandLimit('online-limit-hand', 'online-hand-limit');
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
     try {
       const { code, uid } = await mp.createRoom(name);
-      enterLobby(code, uid, true, { drawSize, maxRounds, variants });
+      enterLobby(code, uid, true, { drawSize, maxRounds, handLimit, variants });
     } catch (e) {
       showOnlineError(e.message || String(e));
     }
@@ -323,7 +339,8 @@
       pauli:       document.getElementById('variant-pauli').checked,
       heliumPrize: document.getElementById('variant-helium').checked,
     };
-    state = Q.createGame(names, { drawSize, maxRounds, variants });
+    const handLimit = readHandLimit('limit-hand', 'hand-limit');
+    state = Q.createGame(names, { drawSize, maxRounds, handLimit, variants });
     passScreenAcknowledged = true; // first player goes straight in
     clearSelections();
     document.getElementById('setup').hidden = true;
@@ -595,6 +612,7 @@
     renderEnergyLedger(viewP);
     renderVariantBadges();
     renderPauliReadout(viewP);
+    renderDiscardBanner();
     updateActionButtons();
 
     const synthing = state.phase === 'synthesize';
@@ -639,17 +657,53 @@
     render();
   }
 
+  // Discard-to-hand-limit prompt (shown in the decays phase when over limit).
+  function renderDiscardBanner() {
+    const el = document.getElementById('discard-banner');
+    const lim = Q.handLimitOf(state);
+    const over = Q.discardRequired(state);
+    if (lim == null || state.phase !== 'decays' || over <= 0) { el.hidden = true; return; }
+    el.hidden = false;
+    const mine = !online || isMyTurn();
+    el.innerHTML = mine
+      ? 'Over hand limit (' + lim + ') — discard <strong>' + over + '</strong> more card' +
+        (over === 1 ? '' : 's') + ' <span class="muted">(click cards in your hand to discard)</span>'
+      : 'Waiting for ' + escapeHtml(Q.currentPlayer(state).name) + ' to discard ' + over +
+        ' to the hand limit (' + lim + ').';
+  }
+
+  async function onDiscardCard(cardId) {
+    if (!isMyTurn()) return;
+    const r = Q.discardCard(state, cardId);
+    if (!r.ok) return showSynthError(r.error);
+    hideSynthError();
+    if (online) { await syncState(); return; }
+    render();
+  }
+
   function renderHand(player) {
     const wrap = document.getElementById('hand');
     wrap.innerHTML = '';
+    // Discard mode: end of turn (decays phase), over the hand limit, my turn.
+    const discardMode = state.phase === 'decays' && Q.discardRequired(state) > 0 && isMyTurn();
+    wrap.classList.toggle('discardable', discardMode);
+    const lim = Q.handLimitOf(state);
+    const limNote = lim != null ? ', limit ' + lim : '';
     document.getElementById('hand-info').textContent =
       player.hand.length === 0
         ? '(empty)'
-        : '(' + player.hand.length + ' cards, click to select for particle synthesis)';
+        : discardMode
+          ? '(' + player.hand.length + ' cards' + limNote + ' — click to discard)'
+          : '(' + player.hand.length + ' cards' + limNote + ', click to select for particle synthesis)';
     if (player.hand.length === 0) return;
     for (const card of player.hand) {
       const el = renderCard(card, selectedHandCards.has(card.id));
+      if (discardMode) el.classList.add('discard-target');
       el.addEventListener('click', () => {
+        if (state.phase === 'decays') {
+          if (Q.discardRequired(state) > 0) onDiscardCard(card.id);
+          return;
+        }
         if (state.phase !== 'synthesize') return;
         if (!isMyTurn()) return;
         if (selectedHandCards.has(card.id)) selectedHandCards.delete(card.id);
@@ -833,7 +887,12 @@
       ? 'Build atom from selected particles'
       : 'Build atom from ' + selectedParticles.size + ' particle' + (selectedParticles.size === 1 ? '' : 's');
     document.getElementById('end-synth-btn').disabled = !synthing || !myTurn;
-    document.getElementById('end-turn-btn').disabled = !myTurn;
+    const mustDiscard = Q.discardRequired(state) > 0;
+    const endTurnBtn = document.getElementById('end-turn-btn');
+    endTurnBtn.disabled = !myTurn || mustDiscard;
+    endTurnBtn.textContent = mustDiscard
+      ? 'Discard ' + Q.discardRequired(state) + ' to end turn'
+      : 'End turn →';
   }
 
   async function onSynthParticle() {

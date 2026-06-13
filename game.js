@@ -231,6 +231,8 @@ function createGame(playerNames, opts) {
   const o = opts || {};
   const drawSize  = o.drawSize  != null ? o.drawSize  : 3;
   const maxRounds = o.maxRounds != null ? o.maxRounds : 10;
+  // Hand limit: a positive number caps the hand; null/0 means no limit.
+  const handLimit = (o.handLimit != null && o.handLimit > 0) ? o.handLimit : null;
   const rng       = o.rng || Math.random;
   const variants = {
     pauli:       !!(o.variants && o.variants.pauli),
@@ -239,6 +241,7 @@ function createGame(playerNames, opts) {
   const state = {
     _nextId: 1,
     deck: shuffle(buildDeck(), rng),
+    discardPile: [],
     players: playerNames.map((name, i) => ({
       id: i,
       name,
@@ -252,7 +255,7 @@ function createGame(playerNames, opts) {
     turn: 1,           // global turn counter (increments every player change)
     round: 1,          // increments when player index wraps to 0
     phase: 'synthesize',  // 'synthesize' | 'decays' | 'between' | 'over'
-    config: { drawSize, maxRounds, variants },
+    config: { drawSize, maxRounds, handLimit, variants },
     lastDecayEvents: [],
     lastSynthEvents: [],
     lastPenalty: null,
@@ -391,6 +394,32 @@ function toggleAnion(state, atomId) {
   return { ok: true, anion: true };
 }
 
+// Hand limit helpers. handLimit is null when the variant is off.
+function handLimitOf(state) {
+  const h = state.config.handLimit;
+  return (typeof h === 'number' && h > 0) ? h : null;
+}
+
+// How many cards the current player must still discard (0 if none / no limit).
+function discardRequired(state) {
+  const lim = handLimitOf(state);
+  if (lim == null) return 0;
+  return Math.max(0, currentPlayer(state).hand.length - lim);
+}
+
+// Discard one card from the current player's hand to the discard pile. Only
+// allowed at the end of the turn (decays phase), before passing.
+function discardCard(state, cardId) {
+  if (state.phase !== 'decays') return { ok: false, error: 'Discard at the end of your turn, after ending synthesis.' };
+  if (handLimitOf(state) == null) return { ok: false, error: 'No hand limit is in play.' };
+  const p = currentPlayer(state);
+  const idx = p.hand.findIndex(c => c.id === cardId);
+  if (idx === -1) return { ok: false, error: 'That card is not in your hand.' };
+  const [card] = p.hand.splice(idx, 1);
+  state.discardPile.push(card);
+  return { ok: true, remaining: discardRequired(state) };
+}
+
 function endSynthesis(state) {
   if (state.phase !== 'synthesize') return { ok: false, error: 'Not in synthesize phase.' };
   processDecays(state);
@@ -450,6 +479,11 @@ function processDecays(state) {
 
 function endTurn(state) {
   if (state.phase !== 'decays') return { ok: false, error: 'Process decays first.' };
+  // Enforce the hand limit: the player must discard down to it before passing.
+  const over = discardRequired(state);
+  if (over > 0) {
+    return { ok: false, error: 'Discard down to ' + handLimitOf(state) + ' cards before ending your turn (' + over + ' over).', needsDiscard: over };
+  }
   // Charge the Pauli Penalty to the player whose turn is ending (before we
   // advance), if the variant is in play.
   state.lastPenalty = null;
@@ -534,9 +568,10 @@ window.QuarkGame = {
   formatEnergy, describeCard,
   identifyParticle, identifyAtom,
   pauliPenalty, freeChargeCount, heliumCount,
+  handLimitOf, discardRequired,
   // state lifecycle
   createGame, currentPlayer,
   synthesizeParticle, synthesizeAtom, decayTritium,
-  annihilatePair, toggleAnion,
+  annihilatePair, toggleAnion, discardCard,
   endSynthesis, endTurn, beginTurn, endGame, winners,
 };
