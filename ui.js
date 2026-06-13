@@ -26,40 +26,68 @@
   const rememberCB    = document.getElementById('setting-remember-names');
   const resetBtn      = document.getElementById('settings-reset');
 
+  if (!S) console.error('[settings] window.Settings missing — settings.js failed to load before ui.js');
+  if (!settingsBtn || !settingsModal) console.error('[settings] DOM nodes missing — index.html may be stale (hard-refresh to bust service worker cache)');
+
   function refreshSettingsUI() {
-    const cur = S.getAll();
-    themePicker.querySelectorAll('.theme-swatch').forEach(b => {
-      b.classList.toggle('active', b.dataset.theme === cur.theme);
+    if (!S) return;
+    try {
+      const cur = S.getAll();
+      if (themePicker) {
+        themePicker.querySelectorAll('.theme-swatch').forEach(b => {
+          b.classList.toggle('active', b.dataset.theme === cur.theme);
+        });
+      }
+      if (rememberCB) rememberCB.checked = !!cur.rememberNames;
+    } catch (e) {
+      console.error('[settings] refresh failed:', e);
+    }
+  }
+
+  // Register the click handler BEFORE anything that could throw, so even if
+  // refresh/init fails the button still opens the modal.
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      refreshSettingsUI();
+      if (!settingsModal) return;
+      if (typeof settingsModal.showModal === 'function') {
+        try { settingsModal.showModal(); }
+        catch (e) { console.error('[settings] showModal failed:', e); settingsModal.setAttribute('open', ''); }
+      } else {
+        settingsModal.setAttribute('open', '');
+      }
     });
-    rememberCB.checked = !!cur.rememberNames;
+  }
+  if (themePicker) {
+    themePicker.addEventListener('click', (e) => {
+      const btn = e.target.closest('.theme-swatch');
+      if (!btn || !S) return;
+      S.set('theme', btn.dataset.theme);
+    });
+  }
+  if (rememberCB) {
+    rememberCB.addEventListener('change', () => {
+      if (!S) return;
+      S.set('rememberNames', rememberCB.checked);
+      if (!rememberCB.checked) S.set('lastNames', []);
+    });
+  }
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (S && confirm('Reset settings to defaults?')) S.reset();
+    });
+  }
+  if (settingsModal) {
+    // Close-on-backdrop-click (the form method=dialog handles the X already).
+    settingsModal.addEventListener('click', (e) => {
+      const r = settingsModal.getBoundingClientRect();
+      const inside = e.clientX >= r.left && e.clientX <= r.right
+                  && e.clientY >= r.top  && e.clientY <= r.bottom;
+      if (!inside) settingsModal.close();
+    });
   }
   refreshSettingsUI();
-  S.subscribe(refreshSettingsUI);
-
-  settingsBtn.addEventListener('click', () => {
-    refreshSettingsUI();
-    if (typeof settingsModal.showModal === 'function') settingsModal.showModal();
-    else settingsModal.setAttribute('open', '');
-  });
-  themePicker.addEventListener('click', (e) => {
-    const btn = e.target.closest('.theme-swatch');
-    if (!btn) return;
-    S.set('theme', btn.dataset.theme);
-  });
-  rememberCB.addEventListener('change', () => {
-    S.set('rememberNames', rememberCB.checked);
-    if (!rememberCB.checked) S.set('lastNames', []);
-  });
-  resetBtn.addEventListener('click', () => {
-    if (confirm('Reset settings to defaults?')) S.reset();
-  });
-  // Close-on-backdrop-click (the form method=dialog handles the X already).
-  settingsModal.addEventListener('click', (e) => {
-    const r = settingsModal.getBoundingClientRect();
-    const inside = e.clientX >= r.left && e.clientX <= r.right
-                && e.clientY >= r.top  && e.clientY <= r.bottom;
-    if (!inside) settingsModal.close();
-  });
+  if (S) S.subscribe(refreshSettingsUI);
 
   renderNameInputs();
 
