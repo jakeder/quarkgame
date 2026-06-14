@@ -219,11 +219,14 @@
       nothingLeft: document.getElementById('online-variant-nothingleft').checked,
     };
     const handLimit = readHandLimit('online-limit-hand', 'online-hand-limit');
+    const hostConfig = { drawSize, maxRounds, handLimit, advanced, variants };
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
     try {
-      const { code, uid } = await mp.createRoom(name);
-      enterLobby(code, uid, true, { drawSize, maxRounds, handLimit, advanced, variants });
+      // Publish advanced + variants to the room so guests get the right lobby
+      // pickers; the full config still rides in hostConfig for createGame.
+      const { code, uid } = await mp.createRoom(name, { advanced, variants });
+      enterLobby(code, uid, true, hostConfig);
     } catch (e) {
       showOnlineError(e.message || String(e));
     }
@@ -268,6 +271,8 @@
 
   function renderLobbyView(room) {
     const players = room.players || {};
+    const cfg = room.config || {};
+    const antiHero = !!(cfg.advanced && cfg.variants && cfg.variants.antiHero);
     const list = document.getElementById('lobby-players');
     list.innerHTML = '';
     Object.entries(players)
@@ -276,13 +281,40 @@
         const li = document.createElement('li');
         const isHost = pid === room.hostUid;
         const isYou  = pid === online.uid;
+        const worldBadge = antiHero
+          ? '<span class="badge world">' + (p.world === 'anti' ? 'anti world' : 'actual world') + '</span>'
+          : '';
         li.innerHTML =
           '<span>' + escapeHtml(p.name) + '</span>' +
           (isHost ? '<span class="badge">host</span>' : '') +
-          (isYou ? '<span class="badge you">you</span>' : '');
+          (isYou ? '<span class="badge you">you</span>' : '') +
+          worldBadge;
         list.appendChild(li);
       });
+    renderWorldPicker(antiHero, players);
     document.getElementById('lobby-start').disabled = Object.keys(players).length < 2;
+  }
+
+  // Anti Hero (online): each player picks their own world in the lobby.
+  function renderWorldPicker(antiHero, players) {
+    const wrap = document.getElementById('lobby-world');
+    if (!wrap) return;
+    if (!antiHero) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    const mine = players[online.uid] || {};
+    const cur = mine.world === 'anti' ? 'anti' : 'actual';
+    wrap.innerHTML =
+      '<h3>Your world (Anti Hero)</h3>' +
+      '<div class="world-choice">' +
+        '<button type="button" class="world-btn' + (cur === 'actual' ? ' active' : '') + '" data-world="actual">Actual world</button>' +
+        '<button type="button" class="world-btn' + (cur === 'anti' ? ' active' : '') + '" data-world="anti">Anti world</button>' +
+      '</div>';
+    wrap.querySelectorAll('.world-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const mp = await window.MultiplayerReady;
+        try { await mp.setPlayerWorld(online.code, online.uid, btn.dataset.world); } catch (_) {}
+      });
+    });
   }
 
   function enterOnlineGame(stateJson) {
@@ -310,7 +342,10 @@
     const uids  = sortedPlayers.map(([uid]) => uid);
     if (names.length < 2) return;
     const mp = await window.MultiplayerReady;
-    const initial = Q.createGame(names, online.hostConfig || {});
+    // Assemble per-player worlds from their lobby choices (Anti Hero).
+    const worlds = sortedPlayers.map(([, p]) => p.world === 'anti' ? 'anti' : 'actual');
+    const cfg = { ...(online.hostConfig || {}), worlds };
+    const initial = Q.createGame(names, cfg);
     // Stamp player uids so every client can identify itself in the synced state.
     initial.players.forEach((p, i) => { p.uid = uids[i]; });
     await mp.startRoom(online.code, initial);
@@ -419,34 +454,54 @@
     const wrap = document.getElementById('rules-ref');
     if (!wrap || wrap.dataset.rendered) return;
     wrap.dataset.rendered = '1';
+    const adv = !!(state.config && state.config.advanced);
 
-    const particles = Q.PARTICLE_RULES.map(rule => {
-      const recipe = formatFlavorRecipe(rule.flavors);
-      const spin   = rule.spin === 'aligned' ? 'all same spin' : 'mixed spins';
-      return (
-        '<li class="ref-item' + (rule.stable ? '' : ' unstable') + '">' +
-          '<div class="ref-head">' + escapeHtml(Q.PARTICLE_LABEL[rule.type]) + '</div>' +
-          '<div class="ref-line">' + recipe + ' · ' + spin + '</div>' +
-          '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + describeDecay(rule) + '</div>' +
-        '</li>'
-      );
-    }).join('');
+    const particleItem = (rule) => {
+      const spin = rule.spin === 'aligned' ? 'all same spin' : 'mixed spins';
+      return '<li class="ref-item' + (rule.stable ? '' : ' unstable') + (rule.anti ? ' anti' : '') + '">' +
+        '<div class="ref-head">' + escapeHtml(Q.PARTICLE_LABEL[rule.type]) + '</div>' +
+        '<div class="ref-line">' + formatFlavorRecipe(rule.flavors, rule.anti) + ' · ' + spin + '</div>' +
+        '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + describeDecay(rule) + '</div>' +
+      '</li>';
+    };
+    const particles = Q.PARTICLE_RULES.filter(r => adv || !r.anti).map(particleItem).join('');
 
-    const atoms = Q.ATOM_RULES.map(rule => {
-      const parts = [];
-      if (rule.protons)  parts.push(rule.protons + 'p');
-      if (rule.neutrons) parts.push(rule.neutrons + 'n');
-      const recipe = parts.join(' + ') + ' · ' + rule.electrons + ' e⁻';
+    // Pions (Advanced): group MESON_RULES by type so pi0's two recipes merge.
+    let pions = '';
+    if (adv) {
+      const byType = {};
+      for (const m of Q.MESON_RULES) {
+        (byType[m.type] = byType[m.type] || []).push(m);
+      }
+      pions = Object.keys(byType).map(type => {
+        const rules = byType[type];
+        const recipe = rules.map(m =>
+          m.q.flavor + ' + ' + m.aq.flavor + '̄').join(' or ');
+        const d = rules[0].decay;
+        const decayTxt = d.positrons ? '→ e⁺' : d.electrons ? '→ e⁻' : '→ nothing';
+        return '<li class="ref-item unstable">' +
+          '<div class="ref-head">' + escapeHtml(Q.PARTICLE_LABEL[type]) + '</div>' +
+          '<div class="ref-line">' + recipe + ' · diff. spins · matching colors</div>' +
+          '<div class="ref-line ref-energy">' + Q.formatEnergy(rules[0].energy) + ' · decays this turn ' + decayTxt + '</div>' +
+        '</li>';
+      }).join('');
+    }
+
+    const atoms = Q.ATOM_RULES.filter(r => adv || !r.anti).map(rule => {
       const spinLbl = describeSpinSum(rule);
-      const stable = rule.stable ? 'stable' : 'unstable → ³He + e⁻';
-      return (
-        '<li class="ref-item' + (rule.stable ? '' : ' unstable') + '">' +
-          '<div class="ref-head">' + escapeHtml(Q.ATOM_LABEL[rule.type]) + '</div>' +
-          '<div class="ref-line">' + recipe + (spinLbl ? ' · ' + spinLbl : '') + '</div>' +
-          '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + stable + '</div>' +
-        '</li>'
-      );
+      const stable = rule.stable ? 'stable'
+        : (rule.anti ? 'unstable → ³H̄e + e⁺' : 'unstable → ³He + e⁻');
+      return '<li class="ref-item' + (rule.stable ? '' : ' unstable') + (rule.anti ? ' anti' : '') + '">' +
+        '<div class="ref-head">' + escapeHtml(Q.ATOM_LABEL[rule.type]) + '</div>' +
+        '<div class="ref-line">' + atomRecipe(rule) + (spinLbl ? ' · ' + spinLbl : '') + '</div>' +
+        '<div class="ref-line ref-energy">' + Q.formatEnergy(rule.energy) + ' · ' + stable + '</div>' +
+      '</li>';
     }).join('');
+
+    const advRules = adv ? (
+      '<li><strong>Pions</strong>: 1 quark + 1 anti-quark of a matching color (red + anti-red ⇒ colorless) with different spins. They auto-decay at end of turn.</li>' +
+      '<li><strong>Anti-baryons / anti-atoms</strong> mirror their matter versions; build anti-atoms with positrons in place of electrons.</li>'
+    ) : '';
 
     wrap.innerHTML =
       '<h2>Reference</h2>' +
@@ -454,6 +509,12 @@
         '<h3>Particles</h3>' +
         '<ul class="ref-list">' + particles + '</ul>' +
       '</div>' +
+      (pions ? (
+        '<div class="ref-block">' +
+          '<h3>Pions</h3>' +
+          '<ul class="ref-list">' + pions + '</ul>' +
+        '</div>'
+      ) : '') +
       '<div class="ref-block">' +
         '<h3>Atoms</h3>' +
         '<ul class="ref-list">' + atoms + '</ul>' +
@@ -465,22 +526,34 @@
           '<li><strong>Mixed</strong> = at least one ↑ and one ↓. <strong>Aligned</strong> = all ↑ or all ↓.</li>' +
           '<li>Unstable particles decay at turn end. Free neutrons get a Schrödinger’s Cat marker and decay at the end of your next turn.</li>' +
           '<li>Tritium may be voluntarily decayed for ³He + e⁻.</li>' +
+          advRules +
           '<li>End of game: each e⁻ + e⁺ pair annihilates for ' + Q.formatEnergy(Q.ANNIHILATION_ENERGY) + '.</li>' +
         '</ul>' +
       '</div>';
   }
 
-  function formatFlavorRecipe(flavors) {
+  function formatFlavorRecipe(flavors, anti) {
+    const bar = anti ? '̄' : '';
     const parts = [];
-    if (flavors.u) parts.push(flavors.u + 'u');
-    if (flavors.d) parts.push(flavors.d + 'd');
+    if (flavors.u) parts.push(flavors.u + 'u' + bar);
+    if (flavors.d) parts.push(flavors.d + 'd' + bar);
     return parts.join(' + ');
+  }
+
+  function atomRecipe(rule) {
+    const pp = rule.anti ? 'p̄' : 'p';
+    const nn = rule.anti ? 'n̄' : 'n';
+    const lep = rule.anti ? 'e⁺' : 'e⁻';
+    const parts = [];
+    if (rule.protons)  parts.push(rule.protons + pp);
+    if (rule.neutrons) parts.push(rule.neutrons + nn);
+    return parts.join(' + ') + ' · ' + rule.electrons + ' ' + lep;
   }
 
   function describeDecay(rule) {
     if (rule.stable) return 'stable';
     if (!rule.decay) return 'unstable';
-    const out = ['→ p⁺'];
+    const out = [rule.anti ? '→ p̄⁻' : '→ p⁺'];
     if (rule.decay.electrons === 1) out.push('+ e⁻');
     else if (rule.decay.electrons > 1) out.push('+ ' + rule.decay.electrons + ' e⁻');
     if (rule.decay.positrons === 1) out.push('+ e⁺');

@@ -56,7 +56,7 @@ async function init() {
     return 'p_' + Math.random().toString(36).slice(2, 10);
   }
 
-  async function createRoom(hostName) {
+  async function createRoom(hostName, config) {
     const uid = randomUid();
     let code;
     // Avoid collisions on small code space.
@@ -70,6 +70,9 @@ async function init() {
       code,
       createdAt: serverTimestamp(),
       hostUid: uid,
+      // Publish lobby-relevant config (advanced flag + which variants) so guests
+      // can show the right pre-game pickers (e.g. Anti Hero world choice).
+      config: config || null,
       players: {
         [uid]: { name: hostName, joinedAt: serverTimestamp() },
       },
@@ -79,6 +82,11 @@ async function init() {
     // Best-effort cleanup if the host's tab closes before starting.
     onDisconnect(ref(db, `rooms/${code}/players/${uid}`)).remove();
     return { code, uid };
+  }
+
+  // A player sets their own pre-game choice (e.g. Anti Hero world).
+  async function setPlayerWorld(code, uid, world) {
+    await update(ref(db, `rooms/${code}/players/${uid}`), { world });
   }
 
   async function joinRoom(code, playerName) {
@@ -121,6 +129,7 @@ async function init() {
   api = {
     ready: true,
     createRoom, joinRoom, subscribeToRoom, leaveRoom, startRoom, writeState,
+    setPlayerWorld,
   };
   window.Multiplayer = api;
   return api;

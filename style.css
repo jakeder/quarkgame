@@ -812,3 +812,16 @@ h1, .tagline, #setup, #pass-screen, #game-over {
 
 .variant-advanced[aria-disabled="true"],
 .variant-advanced input:disabled + span { opacity: 0.55; }
+
+/* ── Lobby world picker (online Anti Hero) ── */
+#lobby-world { margin: 0.25rem 0 0.75rem; }
+#lobby-world h3 { margin: 0 0 0.4rem; }
+.world-choice { display: flex; gap: 0.5rem; }
+.world-btn {
+  background: var(--panel-inset);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.world-btn.active { background: var(--accent); color: #0a0d1c; border-color: var(--accent); }
+.badge.world { background: #2a3050; color: var(--accent); }
