@@ -219,7 +219,8 @@
       nothingLeft: document.getElementById('online-variant-nothingleft').checked,
     };
     const handLimit = readHandLimit('online-limit-hand', 'online-hand-limit');
-    const hostConfig = { drawSize, maxRounds, handLimit, advanced, variants };
+    const startHand = clampInt(document.getElementById('online-start-hand').value, 1, 20, drawSize);
+    const hostConfig = { drawSize, startHand, maxRounds, handLimit, advanced, variants };
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
     try {
@@ -439,7 +440,8 @@
     const worlds = (advanced && variants.antiHero)
       ? Array.from({ length: count }, (_, i) => (document.getElementById('world-' + i) || { value: 'actual' }).value)
       : null;
-    state = Q.createGame(names, { drawSize, maxRounds, handLimit, advanced, variants, worlds });
+    const startHand = clampInt(document.getElementById('start-hand').value, 1, 20, drawSize);
+    state = Q.createGame(names, { drawSize, startHand, maxRounds, handLimit, advanced, variants, worlds });
     passScreenAcknowledged = true; // first player goes straight in
     clearSelections();
     document.getElementById('setup').hidden = true;

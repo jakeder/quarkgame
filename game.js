@@ -347,6 +347,9 @@ function createGame(playerNames, opts) {
   const o = opts || {};
   const drawSize  = o.drawSize  != null ? o.drawSize  : 3;
   const maxRounds = o.maxRounds != null ? o.maxRounds : 10;
+  // Starting hand size: each player's first draw uses this; subsequent draws
+  // use drawSize. Defaults to drawSize so existing setups behave identically.
+  const startHand = (o.startHand != null && o.startHand > 0) ? o.startHand : drawSize;
   // Hand limit: a positive number caps the hand; null/0 means no limit.
   const handLimit = (o.handLimit != null && o.handLimit > 0) ? o.handLimit : null;
   const advanced  = !!o.advanced;
@@ -370,6 +373,7 @@ function createGame(playerNames, opts) {
       id: i,
       name,
       hand: [],
+      hasOpened: false,
       stockpile: { particles: [], atoms: [], electrons: 0, positrons: 0 },
       energy: 0,
       log: [],
@@ -381,7 +385,7 @@ function createGame(playerNames, opts) {
     turn: 1,           // global turn counter (increments every player change)
     round: 1,          // increments when player index wraps to 0
     phase: 'synthesize',  // 'synthesize' | 'decays' | 'between' | 'over'
-    config: { drawSize, maxRounds, handLimit, advanced, variants },
+    config: { drawSize, startHand, maxRounds, handLimit, advanced, variants },
     lastDecayEvents: [],
     lastSynthEvents: [],
     lastPenalty: null,
@@ -397,10 +401,17 @@ function currentPlayer(state) {
 
 function drawForCurrentPlayer(state) {
   const p = currentPlayer(state);
-  const n = Math.min(state.config.drawSize, state.deck.length);
+  // First time we deal to this player, give startHand; subsequent turns give
+  // drawSize. Old states without startHand fall back to drawSize.
+  const startHand = (state.config.startHand != null && state.config.startHand > 0)
+    ? state.config.startHand
+    : state.config.drawSize;
+  const size = p.hasOpened ? state.config.drawSize : startHand;
+  const n = Math.min(size, state.deck.length);
   for (let i = 0; i < n; i++) {
     p.hand.push(state.deck.pop());
   }
+  p.hasOpened = true;
   return n;
 }
 
