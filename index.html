@@ -41,6 +41,35 @@
         </label>
       </section>
 
+      <section class="settings-section">
+        <h3>Default amounts for new games</h3>
+        <p class="settings-hint muted">These pre-fill the setup screen at page load. You can still tweak per-game.</p>
+        <div class="settings-grid">
+          <label>Players <input type="number" id="setting-default-players" min="2" max="6" /></label>
+          <label>Starting hand <input type="number" id="setting-default-start" min="1" max="20" /></label>
+          <label>Draw per turn <input type="number" id="setting-default-draw" min="1" max="10" /></label>
+          <label>Rounds <input type="number" id="setting-default-rounds" min="3" max="20" /></label>
+        </div>
+        <label class="settings-row inline-toggle">
+          <input type="checkbox" id="setting-default-handlimit-on" />
+          <span>Hand limit by default</span>
+          <input type="number" id="setting-default-handlimit" min="1" max="20" disabled />
+        </label>
+      </section>
+
+      <section class="settings-section">
+        <h3>Exchange mode</h3>
+        <p class="settings-hint muted">During your turn, swap a fixed number of cards for new ones from the deck.</p>
+        <label class="settings-row">
+          <input type="checkbox" id="setting-exchange-on" />
+          <span>Enable exchange mode</span>
+        </label>
+        <div class="settings-row inline-toggle">
+          discard <input type="number" id="setting-exchange-discard" min="1" max="20" disabled />
+          → draw <input type="number" id="setting-exchange-draw" min="1" max="20" disabled />
+        </div>
+      </section>
+
       <footer class="settings-footer">
         <button type="button" id="settings-reset" class="secondary">Reset to defaults</button>
       </footer>
@@ -89,15 +118,6 @@
             <input type="checkbox" id="limit-hand" />
             <input id="hand-limit" type="number" min="1" max="20" value="7" disabled />
             <small class="muted">discard down to this at end of turn</small>
-          </span>
-        </div>
-        <div class="setup-row">
-          <label for="exchange-on">Exchange mode</label>
-          <span class="inline-toggle">
-            <input type="checkbox" id="exchange-on" />
-            discard <input id="exchange-discard" type="number" min="1" max="20" value="1" disabled />
-            → draw <input id="exchange-draw" type="number" min="1" max="20" value="1" disabled />
-            <small class="muted">any time on your turn</small>
           </span>
         </div>
         <fieldset class="variants">
@@ -161,15 +181,6 @@
               <input type="checkbox" id="online-limit-hand" />
               <input id="online-hand-limit" type="number" min="1" max="20" value="7" disabled />
               <small class="muted">discard down to this at end of turn</small>
-            </span>
-          </div>
-          <div class="setup-row">
-            <label for="online-exchange-on">Exchange mode</label>
-            <span class="inline-toggle">
-              <input type="checkbox" id="online-exchange-on" />
-              discard <input id="online-exchange-discard" type="number" min="1" max="20" value="1" disabled />
-              → draw <input id="online-exchange-draw" type="number" min="1" max="20" value="1" disabled />
-              <small class="muted">any time on your turn</small>
             </span>
           </div>
           <fieldset class="variants">

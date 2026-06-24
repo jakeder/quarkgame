@@ -81,22 +81,14 @@
     return clampInt(document.getElementById(numId).value, 1, 20, 7);
   }
 
-  // Exchange-mode checkbox enables/disables its two number inputs (local + online).
-  bindExchangeToggle('exchange-on', 'exchange-discard', 'exchange-draw');
-  bindExchangeToggle('online-exchange-on', 'online-exchange-discard', 'online-exchange-draw');
-  function bindExchangeToggle(cbId, dId, drId) {
-    const cb = document.getElementById(cbId);
-    const d = document.getElementById(dId);
-    const dr = document.getElementById(drId);
-    if (!cb || !d || !dr) return;
-    cb.addEventListener('change', () => { d.disabled = dr.disabled = !cb.checked; });
-  }
-  function readExchange(cbId, dId, drId) {
-    const cb = document.getElementById(cbId);
-    if (!cb || !cb.checked) return null;
+  // Exchange mode is configured in the gear modal (persistent setting), not
+  // per-game on the setup screen. Read it from window.Settings.
+  function exchangeFromSettings() {
+    const S = window.Settings;
+    if (!S || !S.get('exchangeOn')) return null;
     return {
-      discard: clampInt(document.getElementById(dId).value, 1, 20, 1),
-      draw:    clampInt(document.getElementById(drId).value, 1, 20, 1),
+      discard: clampInt(S.get('exchangeDiscard'), 1, 20, 1),
+      draw:    clampInt(S.get('exchangeDraw'),    1, 20, 1),
     };
   }
 
@@ -120,6 +112,21 @@
   if (!S) console.error('[settings] window.Settings missing — settings.js failed to load before ui.js');
   if (!settingsBtn || !settingsModal) console.error('[settings] DOM nodes missing — index.html may be stale (hard-refresh to bust service worker cache)');
 
+  // Numeric/checkbox inputs in the settings modal (defaults section + exchange).
+  const SETTING_NUM_FIELDS = [
+    ['setting-default-players',  'defaultPlayerCount', 2, 6],
+    ['setting-default-start',    'defaultStartHand',   1, 20],
+    ['setting-default-draw',     'defaultDrawSize',    1, 10],
+    ['setting-default-rounds',   'defaultMaxRounds',   3, 20],
+    ['setting-default-handlimit','defaultHandLimit',   1, 20],
+    ['setting-exchange-discard', 'exchangeDiscard',    1, 20],
+    ['setting-exchange-draw',    'exchangeDraw',       1, 20],
+  ];
+  const SETTING_BOOL_FIELDS = [
+    ['setting-default-handlimit-on', 'defaultHandLimitOn'],
+    ['setting-exchange-on',          'exchangeOn'],
+  ];
+
   function refreshSettingsUI() {
     if (!S) return;
     try {
@@ -130,9 +137,40 @@
         });
       }
       if (rememberCB) rememberCB.checked = !!cur.rememberNames;
+      for (const [id, key] of SETTING_NUM_FIELDS) {
+        const el = document.getElementById(id);
+        if (el) el.value = cur[key];
+      }
+      for (const [id, key] of SETTING_BOOL_FIELDS) {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!cur[key];
+      }
+      // Enable/disable the value inputs gated by their checkbox.
+      const hlOn = document.getElementById('setting-default-handlimit-on');
+      const hl   = document.getElementById('setting-default-handlimit');
+      if (hlOn && hl) hl.disabled = !hlOn.checked;
+      const exOn = document.getElementById('setting-exchange-on');
+      const exD  = document.getElementById('setting-exchange-discard');
+      const exDr = document.getElementById('setting-exchange-draw');
+      if (exOn && exD && exDr) exD.disabled = exDr.disabled = !exOn.checked;
     } catch (e) {
       console.error('[settings] refresh failed:', e);
     }
+  }
+
+  // Wire numeric + boolean settings inputs.
+  for (const [id, key, lo, hi] of SETTING_NUM_FIELDS) {
+    const el = document.getElementById(id);
+    if (!el || !S) continue;
+    el.addEventListener('change', () => {
+      const n = clampInt(el.value, lo, hi, S.get(key));
+      S.set(key, n);
+    });
+  }
+  for (const [id, key] of SETTING_BOOL_FIELDS) {
+    const el = document.getElementById(id);
+    if (!el || !S) continue;
+    el.addEventListener('change', () => S.set(key, el.checked));
   }
 
   // Register the click handler BEFORE anything that could throw, so even if
@@ -179,6 +217,32 @@
   }
   refreshSettingsUI();
   if (S) S.subscribe(refreshSettingsUI);
+
+  // Pre-fill setup-screen inputs from the persisted defaults (once at load).
+  // Per-game tweaks still work; the defaults just save retyping each game.
+  applySetupDefaults();
+  function applySetupDefaults() {
+    if (!S) return;
+    const c = S.getAll();
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    const setChk = (id, v) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.checked = !!v;
+      el.dispatchEvent(new Event('change')); // re-enable dependent number inputs
+    };
+    setVal('player-count', c.defaultPlayerCount);
+    setVal('start-hand',   c.defaultStartHand);
+    setVal('draw-size',    c.defaultDrawSize);
+    setVal('max-rounds',   c.defaultMaxRounds);
+    setVal('hand-limit',   c.defaultHandLimit);
+    setChk('limit-hand',   c.defaultHandLimitOn);
+    setVal('online-start-hand', c.defaultStartHand);
+    setVal('online-draw-size',  c.defaultDrawSize);
+    setVal('online-max-rounds', c.defaultMaxRounds);
+    setVal('online-hand-limit', c.defaultHandLimit);
+    setChk('online-limit-hand', c.defaultHandLimitOn);
+  }
 
   renderNameInputs();
 
@@ -240,7 +304,7 @@
     };
     const handLimit = readHandLimit('online-limit-hand', 'online-hand-limit');
     const startHand = clampInt(document.getElementById('online-start-hand').value, 1, 20, drawSize);
-    const exchange = readExchange('online-exchange-on', 'online-exchange-discard', 'online-exchange-draw');
+    const exchange = exchangeFromSettings();
     const hostConfig = { drawSize, startHand, maxRounds, handLimit, exchange, advanced, variants };
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
@@ -462,7 +526,7 @@
       ? Array.from({ length: count }, (_, i) => (document.getElementById('world-' + i) || { value: 'actual' }).value)
       : null;
     const startHand = clampInt(document.getElementById('start-hand').value, 1, 20, drawSize);
-    const exchange = readExchange('exchange-on', 'exchange-discard', 'exchange-draw');
+    const exchange = exchangeFromSettings();
     state = Q.createGame(names, { drawSize, startHand, maxRounds, handLimit, exchange, advanced, variants, worlds });
     passScreenAcknowledged = true; // first player goes straight in
     clearSelections();

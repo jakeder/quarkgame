@@ -825,3 +825,18 @@ h1, .tagline, #setup, #pass-screen, #game-over {
 }
 .world-btn.active { background: var(--accent); color: #0a0d1c; border-color: var(--accent); }
 .badge.world { background: #2a3050; color: var(--accent); }
+
+/* ── Settings modal: defaults + exchange ── */
+.settings-hint { margin: -0.2rem 0 0.4rem; font-size: 0.78rem; }
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem 0.7rem;
+}
+.settings-grid label {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.settings-grid input[type="number"] { width: 4rem; }
+.settings-row.inline-toggle input[type="number"] { width: 4rem; }
