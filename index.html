@@ -14,6 +14,68 @@
   <link rel="apple-touch-icon" href="assets/icon.svg" />
 </head>
 <body>
+  <button id="settings-btn" class="settings-btn" type="button" aria-label="Open settings" title="Settings">⚙</button>
+
+  <dialog id="settings-modal" class="settings-modal">
+    <form method="dialog" class="settings-form">
+      <header class="settings-header">
+        <h2>Settings</h2>
+        <button id="settings-close" class="icon-btn" type="submit" aria-label="Close">✕</button>
+      </header>
+
+      <section class="settings-section">
+        <h3>Theme</h3>
+        <div id="theme-picker" class="theme-picker" role="radiogroup" aria-label="Theme color">
+          <button type="button" class="theme-swatch" data-theme="cyan"   aria-label="Cyan"   title="Cyan"></button>
+          <button type="button" class="theme-swatch" data-theme="green"  aria-label="Green"  title="Green"></button>
+          <button type="button" class="theme-swatch" data-theme="amber"  aria-label="Amber"  title="Amber"></button>
+          <button type="button" class="theme-swatch" data-theme="violet" aria-label="Violet" title="Violet"></button>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>Setup</h3>
+        <label class="settings-row">
+          <input type="checkbox" id="setting-remember-names" />
+          <span>Remember player names between games</span>
+        </label>
+      </section>
+
+      <section class="settings-section">
+        <h3>Default amounts for new games</h3>
+        <p class="settings-hint muted">These pre-fill the setup screen at page load. You can still tweak per-game.</p>
+        <div class="settings-grid">
+          <label>Players <input type="number" id="setting-default-players" min="2" max="6" /></label>
+          <label>Starting hand <input type="number" id="setting-default-start" min="1" max="20" /></label>
+          <label>Draw per turn <input type="number" id="setting-default-draw" min="1" max="10" /></label>
+          <label>Rounds <input type="number" id="setting-default-rounds" min="3" max="20" /></label>
+        </div>
+        <label class="settings-row inline-toggle">
+          <input type="checkbox" id="setting-default-handlimit-on" />
+          <span>Hand limit by default</span>
+          <input type="number" id="setting-default-handlimit" min="1" max="20" disabled />
+        </label>
+      </section>
+
+      <section class="settings-section">
+        <h3>Exchange mode</h3>
+        <p class="settings-hint muted">During your turn, swap a fixed number of cards for new ones from the deck.</p>
+        <label class="settings-row">
+          <input type="checkbox" id="setting-exchange-on" />
+          <span>Enable exchange mode</span>
+        </label>
+        <div class="settings-row inline-toggle">
+          discard <input type="number" id="setting-exchange-discard" min="1" max="20" disabled />
+          → draw <input type="number" id="setting-exchange-draw" min="1" max="20" disabled />
+        </div>
+      </section>
+
+      <footer class="settings-footer">
+        <button type="button" id="settings-reset" class="secondary">Reset to defaults</button>
+      </footer>
+    </form>
+  </dialog>
+
   <main>
     <h1>Qwazy Quarks</h1>
 
@@ -39,12 +101,51 @@
           </select>
         </div>
         <div class="setup-row">
+          <label for="start-hand">Starting hand size</label>
+          <input id="start-hand" type="number" min="1" max="20" value="3" />
+        </div>
+        <div class="setup-row">
           <label for="draw-size">Cards drawn per turn</label>
           <input id="draw-size" type="number" min="1" max="10" value="3" />
         </div>
         <div class="setup-row">
           <label for="max-rounds">Rounds</label>
           <input id="max-rounds" type="number" min="3" max="20" value="10" />
+        </div>
+        <div class="setup-row">
+          <label for="limit-hand">Hand limit</label>
+          <span class="inline-toggle">
+            <input type="checkbox" id="limit-hand" />
+            <input id="hand-limit" type="number" min="1" max="20" value="7" disabled />
+            <small class="muted">discard down to this at end of turn</small>
+          </span>
+        </div>
+        <fieldset class="variants">
+          <legend>Variants <small class="muted">(optional)</small></legend>
+          <label class="variant-row">
+            <input type="checkbox" id="variant-pauli" />
+            <span><strong>Pauli Penalty</strong><br><small class="muted">Pay energy each turn for free charges left in your stockpile. Annihilate positrons any time; H⁻ anions exempt.</small></span>
+          </label>
+          <label class="variant-row">
+            <input type="checkbox" id="variant-helium" />
+            <span><strong>Helium Prize</strong><br><small class="muted">Win by most Helium-3/Helium-4 atoms (ties broken by energy) instead of most energy.</small></span>
+          </label>
+          <label class="variant-row">
+            <input type="checkbox" id="advanced-mode" />
+            <span><strong>Advanced game</strong> <small class="muted">(meet the mesons)</small><br><small class="muted">Adds 12 anti-quark cards, anti-baryons / anti-atoms, and pions (q + q̄). Pions auto-decay each turn.</small></span>
+          </label>
+          <label class="variant-row variant-advanced">
+            <input type="checkbox" id="variant-antihero" disabled />
+            <span><strong>Anti Hero</strong> <small class="muted">(Advanced)</small><br><small class="muted">Each player picks a world. Only earn energy for creations in your world.</small></span>
+          </label>
+          <label class="variant-row variant-advanced">
+            <input type="checkbox" id="variant-nothingleft" disabled />
+            <span><strong>Nothing Left Behind</strong> <small class="muted">(Advanced)</small><br><small class="muted">Pair particles and anti-particles at end of game. Fewest left wins.</small></span>
+          </label>
+        </fieldset>
+        <div id="worlds-picker" hidden>
+          <h3>Pick each player's world (Anti Hero)</h3>
+          <div id="worlds-list"></div>
         </div>
         <div id="player-names"></div>
         <button id="start">Start game</button>
@@ -63,6 +164,10 @@
             <input id="online-host-name" type="text" placeholder="Operator" />
           </div>
           <div class="setup-row">
+            <label for="online-start-hand">Starting hand size</label>
+            <input id="online-start-hand" type="number" min="1" max="20" value="3" />
+          </div>
+          <div class="setup-row">
             <label for="online-draw-size">Cards drawn per turn</label>
             <input id="online-draw-size" type="number" min="1" max="10" value="3" />
           </div>
@@ -70,6 +175,37 @@
             <label for="online-max-rounds">Rounds</label>
             <input id="online-max-rounds" type="number" min="3" max="20" value="10" />
           </div>
+          <div class="setup-row">
+            <label for="online-limit-hand">Hand limit</label>
+            <span class="inline-toggle">
+              <input type="checkbox" id="online-limit-hand" />
+              <input id="online-hand-limit" type="number" min="1" max="20" value="7" disabled />
+              <small class="muted">discard down to this at end of turn</small>
+            </span>
+          </div>
+          <fieldset class="variants">
+            <legend>Variants <small class="muted">(optional)</small></legend>
+            <label class="variant-row">
+              <input type="checkbox" id="online-variant-pauli" />
+              <span><strong>Pauli Penalty</strong><br><small class="muted">Energy penalty each turn for free charges.</small></span>
+            </label>
+            <label class="variant-row">
+              <input type="checkbox" id="online-variant-helium" />
+              <span><strong>Helium Prize</strong><br><small class="muted">Most Helium-3/-4 atoms wins.</small></span>
+            </label>
+            <label class="variant-row">
+              <input type="checkbox" id="online-advanced-mode" />
+              <span><strong>Advanced game</strong><br><small class="muted">Anti-quarks, anti-baryons / anti-atoms, pions.</small></span>
+            </label>
+            <label class="variant-row variant-advanced">
+              <input type="checkbox" id="online-variant-antihero" disabled />
+              <span><strong>Anti Hero</strong> <small class="muted">(Advanced)</small></span>
+            </label>
+            <label class="variant-row variant-advanced">
+              <input type="checkbox" id="online-variant-nothingleft" disabled />
+              <span><strong>Nothing Left Behind</strong> <small class="muted">(Advanced)</small></span>
+            </label>
+          </fieldset>
           <button id="create-room-btn">Create room</button>
         </div>
 
@@ -97,6 +233,7 @@
       <p class="muted">Share this code so others can join.</p>
       <h3>Players</h3>
       <ul id="lobby-players" class="lobby-players"></ul>
+      <div id="lobby-world" hidden></div>
       <div class="actions">
         <button id="lobby-start" hidden>Start game</button>
         <button id="lobby-leave" class="secondary">Leave</button>
@@ -122,7 +259,10 @@
         <div class="stat">Round <strong id="round-number"></strong> / <span id="max-rounds-display"></span></div>
         <div class="stat">Deck: <strong id="deck-count"></strong></div>
         <div class="phase-chip" id="phase-chip"></div>
+        <div id="variant-badges" class="variant-badges"></div>
       </header>
+      <div id="pauli-readout" class="pauli-readout" hidden></div>
+      <div id="discard-banner" class="discard-banner" hidden></div>
 
       <section class="hand-section">
         <h2>Your hand <small class="muted" id="hand-info"></small></h2>
@@ -138,6 +278,7 @@
             <input type="number" id="atom-electron-count" min="0" max="2" value="0" />
           </label>
           <button id="build-atom-btn" disabled>Build atom from selected particles</button>
+          <button id="exchange-btn" class="secondary" hidden disabled>Exchange cards</button>
           <span class="synth-divider">·</span>
           <button id="end-synth-btn" class="secondary">End synthesis →</button>
         </span>
@@ -150,6 +291,7 @@
         <div class="leptons">
           <span class="lepton-counter"><span class="lepton-glyph e-minus">e⁻</span> <strong id="electron-count">0</strong></span>
           <span class="lepton-counter"><span class="lepton-glyph e-plus">e⁺</span> <strong id="positron-count">0</strong></span>
+          <button id="annihilate-btn" class="secondary annihilate-btn" hidden>Annihilate e⁻e⁺ (+1.02 MeV)</button>
         </div>
         <h3>Free particles <small class="muted">(click to select for atom synthesis)</small></h3>
         <div id="particles" class="tiles"></div>
@@ -182,6 +324,7 @@
     </section>
   </main>
 
+  <script src="settings.js"></script>
   <script src="game.js"></script>
   <script type="module" src="multiplayer.js"></script>
   <script src="ui.js"></script>
