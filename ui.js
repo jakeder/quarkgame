@@ -81,9 +81,29 @@
     return clampInt(document.getElementById(numId).value, 1, 20, 7);
   }
 
+  // Exchange-mode checkbox enables/disables its two number inputs (local + online).
+  bindExchangeToggle('exchange-on', 'exchange-discard', 'exchange-draw');
+  bindExchangeToggle('online-exchange-on', 'online-exchange-discard', 'online-exchange-draw');
+  function bindExchangeToggle(cbId, dId, drId) {
+    const cb = document.getElementById(cbId);
+    const d = document.getElementById(dId);
+    const dr = document.getElementById(drId);
+    if (!cb || !d || !dr) return;
+    cb.addEventListener('change', () => { d.disabled = dr.disabled = !cb.checked; });
+  }
+  function readExchange(cbId, dId, drId) {
+    const cb = document.getElementById(cbId);
+    if (!cb || !cb.checked) return null;
+    return {
+      discard: clampInt(document.getElementById(dId).value, 1, 20, 1),
+      draw:    clampInt(document.getElementById(drId).value, 1, 20, 1),
+    };
+  }
+
   // Game screen wiring
   document.getElementById('synth-particle-btn').addEventListener('click', onSynthParticle);
   document.getElementById('build-atom-btn').addEventListener('click', onBuildAtom);
+  document.getElementById('exchange-btn').addEventListener('click', onExchange);
   document.getElementById('end-synth-btn').addEventListener('click', onEndSynthesis);
   document.getElementById('end-turn-btn').addEventListener('click', onEndTurn);
   document.getElementById('atom-electron-count').addEventListener('input', updateActionButtons);
@@ -220,7 +240,8 @@
     };
     const handLimit = readHandLimit('online-limit-hand', 'online-hand-limit');
     const startHand = clampInt(document.getElementById('online-start-hand').value, 1, 20, drawSize);
-    const hostConfig = { drawSize, startHand, maxRounds, handLimit, advanced, variants };
+    const exchange = readExchange('online-exchange-on', 'online-exchange-discard', 'online-exchange-draw');
+    const hostConfig = { drawSize, startHand, maxRounds, handLimit, exchange, advanced, variants };
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
     try {
@@ -441,7 +462,8 @@
       ? Array.from({ length: count }, (_, i) => (document.getElementById('world-' + i) || { value: 'actual' }).value)
       : null;
     const startHand = clampInt(document.getElementById('start-hand').value, 1, 20, drawSize);
-    state = Q.createGame(names, { drawSize, startHand, maxRounds, handLimit, advanced, variants, worlds });
+    const exchange = readExchange('exchange-on', 'exchange-discard', 'exchange-draw');
+    state = Q.createGame(names, { drawSize, startHand, maxRounds, handLimit, exchange, advanced, variants, worlds });
     passScreenAcknowledged = true; // first player goes straight in
     clearSelections();
     document.getElementById('setup').hidden = true;
@@ -1053,6 +1075,16 @@
     atomBtn.textContent = selectedParticles.size === 0
       ? 'Build atom from selected particles'
       : 'Build atom from ' + selectedParticles.size + ' particle' + (selectedParticles.size === 1 ? '' : 's');
+    // Exchange mode button.
+    const exCfg = state && Q.exchangeConfig(state);
+    const exBtn = document.getElementById('exchange-btn');
+    exBtn.hidden = !exCfg;
+    if (exCfg) {
+      const deckEmpty = state.deck.length === 0;
+      exBtn.disabled = !synthing || !myTurn || n !== exCfg.discard || deckEmpty;
+      exBtn.textContent = 'Exchange ' + exCfg.discard + ' → draw ' + exCfg.draw +
+        (deckEmpty ? ' (deck empty)' : ' · ' + n + '/' + exCfg.discard + ' selected');
+    }
     document.getElementById('end-synth-btn').disabled = !synthing || !myTurn;
     const mustDiscard = Q.discardRequired(state) > 0;
     const endTurnBtn = document.getElementById('end-turn-btn');
@@ -1081,6 +1113,16 @@
     hideSynthError();
     selectedParticles.clear();
     document.getElementById('atom-electron-count').value = '0';
+    if (online) await syncState(); else render();
+  }
+
+  async function onExchange() {
+    if (!isMyTurn()) return showSynthError("It's not your turn.");
+    const ids = Array.from(selectedHandCards);
+    const r = Q.exchangeCards(state, ids);
+    if (!r.ok) return showSynthError(r.error);
+    hideSynthError();
+    selectedHandCards.clear();
     if (online) await syncState(); else render();
   }
 

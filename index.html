@@ -91,6 +91,15 @@
             <small class="muted">discard down to this at end of turn</small>
           </span>
         </div>
+        <div class="setup-row">
+          <label for="exchange-on">Exchange mode</label>
+          <span class="inline-toggle">
+            <input type="checkbox" id="exchange-on" />
+            discard <input id="exchange-discard" type="number" min="1" max="20" value="1" disabled />
+            → draw <input id="exchange-draw" type="number" min="1" max="20" value="1" disabled />
+            <small class="muted">any time on your turn</small>
+          </span>
+        </div>
         <fieldset class="variants">
           <legend>Variants <small class="muted">(optional)</small></legend>
           <label class="variant-row">
@@ -152,6 +161,15 @@
               <input type="checkbox" id="online-limit-hand" />
               <input id="online-hand-limit" type="number" min="1" max="20" value="7" disabled />
               <small class="muted">discard down to this at end of turn</small>
+            </span>
+          </div>
+          <div class="setup-row">
+            <label for="online-exchange-on">Exchange mode</label>
+            <span class="inline-toggle">
+              <input type="checkbox" id="online-exchange-on" />
+              discard <input id="online-exchange-discard" type="number" min="1" max="20" value="1" disabled />
+              → draw <input id="online-exchange-draw" type="number" min="1" max="20" value="1" disabled />
+              <small class="muted">any time on your turn</small>
             </span>
           </div>
           <fieldset class="variants">
@@ -249,6 +267,7 @@
             <input type="number" id="atom-electron-count" min="0" max="2" value="0" />
           </label>
           <button id="build-atom-btn" disabled>Build atom from selected particles</button>
+          <button id="exchange-btn" class="secondary" hidden disabled>Exchange cards</button>
           <span class="synth-divider">·</span>
           <button id="end-synth-btn" class="secondary">End synthesis →</button>
         </span>

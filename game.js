@@ -352,6 +352,10 @@ function createGame(playerNames, opts) {
   const startHand = (o.startHand != null && o.startHand > 0) ? o.startHand : drawSize;
   // Hand limit: a positive number caps the hand; null/0 means no limit.
   const handLimit = (o.handLimit != null && o.handLimit > 0) ? o.handLimit : null;
+  // Exchange mode: discard N cards to draw M, any time on your turn. null = off.
+  const exchange = (o.exchange && o.exchange.discard > 0 && o.exchange.draw > 0)
+    ? { discard: o.exchange.discard, draw: o.exchange.draw }
+    : null;
   const advanced  = !!o.advanced;
   const rng       = o.rng || Math.random;
   const variants = {
@@ -385,7 +389,7 @@ function createGame(playerNames, opts) {
     turn: 1,           // global turn counter (increments every player change)
     round: 1,          // increments when player index wraps to 0
     phase: 'synthesize',  // 'synthesize' | 'decays' | 'between' | 'over'
-    config: { drawSize, startHand, maxRounds, handLimit, advanced, variants },
+    config: { drawSize, startHand, maxRounds, handLimit, exchange, advanced, variants },
     lastDecayEvents: [],
     lastSynthEvents: [],
     lastPenalty: null,
@@ -592,6 +596,35 @@ function discardCard(state, cardId) {
   const [card] = p.hand.splice(idx, 1);
   state.discardPile.push(card);
   return { ok: true, remaining: discardRequired(state) };
+}
+
+// Exchange mode config (null when off).
+function exchangeConfig(state) {
+  const e = state.config.exchange;
+  return (e && e.discard > 0 && e.draw > 0) ? e : null;
+}
+
+// Exchange: discard exactly `discard` selected cards, then draw `draw` new ones.
+// Available any number of times during your synthesize phase.
+function exchangeCards(state, cardIds) {
+  if (state.phase !== 'synthesize') return { ok: false, error: 'Exchange during the synthesize phase.' };
+  const cfg = exchangeConfig(state);
+  if (!cfg) return { ok: false, error: 'Exchange mode is not enabled.' };
+  const p = currentPlayer(state);
+  if (cardIds.length !== cfg.discard) {
+    return { ok: false, error: 'Select exactly ' + cfg.discard + ' card' + (cfg.discard === 1 ? '' : 's') + ' to exchange.' };
+  }
+  const cards = cardIds.map(id => p.hand.find(c => c.id === id)).filter(Boolean);
+  if (cards.length !== cardIds.length) return { ok: false, error: 'One or more selected cards are not in your hand.' };
+  if (state.deck.length === 0) return { ok: false, error: 'The deck is empty — nothing to draw.' };
+  // Discard the selected cards.
+  p.hand = p.hand.filter(c => !cardIds.includes(c.id));
+  for (const c of cards) state.discardPile.push(c);
+  // Draw up to `draw` new cards.
+  const drawN = Math.min(cfg.draw, state.deck.length);
+  for (let i = 0; i < drawN; i++) p.hand.push(state.deck.pop());
+  p.log.push({ kind: 'exchange', discarded: cards.length, drawn: drawN });
+  return { ok: true, discarded: cards.length, drawn: drawN };
 }
 
 function endSynthesis(state) {
@@ -821,5 +854,6 @@ window.QuarkGame = {
   createGame, currentPlayer,
   synthesizeParticle, synthesizeAtom, decayTritium,
   annihilatePair, toggleAnion, discardCard,
+  exchangeConfig, exchangeCards,
   endSynthesis, endTurn, beginTurn, endGame, winners,
 };
