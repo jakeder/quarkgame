@@ -644,9 +644,6 @@ function exchangeCards(state, cardIds) {
 function endSynthesis(state) {
   if (state.phase !== 'synthesize') return { ok: false, error: 'Not in synthesize phase.' };
   processDecays(state);
-  // Draw-at-end-of-turn: pull the ending player's next-turn hand now so they
-  // can plan (and apply the hand limit) before passing.
-  if (state.config.drawAtEnd) drawForCurrentPlayer(state);
   state.phase = 'decays';
   return { ok: true, events: state.lastDecayEvents };
 }
@@ -742,6 +739,12 @@ function endTurn(state) {
     }
     state.lastPenalty = { playerId: ender.id, name: ender.name, n, amount };
   }
+  // Draw-at-end-of-turn: now (AFTER the hand-limit discard check) deal the
+  // ending player their next-turn hand. They may end up over the hand limit
+  // after this; that's intentional — the player gets to use the new cards next
+  // turn and only has to discard at the END of that turn (against the played-
+  // down hand again).
+  if (state.config.drawAtEnd) drawForCurrentPlayer(state);
   const numPlayers = state.players.length;
   const wasLastPlayer = (state.currentPlayer + 1) % numPlayers === 0;
   state.currentPlayer = (state.currentPlayer + 1) % numPlayers;
