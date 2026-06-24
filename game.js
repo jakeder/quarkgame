@@ -356,6 +356,11 @@ function createGame(playerNames, opts) {
   const exchange = (o.exchange && o.exchange.discard > 0 && o.exchange.draw > 0)
     ? { discard: o.exchange.discard, draw: o.exchange.draw }
     : null;
+  // Draw-at-end-of-turn mode: each player draws their next-turn hand at the
+  // end of the current turn (after decays) instead of at the start of the next.
+  // All players also get startHand at game start. Used in online mode so
+  // waiting players can see and plan with their next hand.
+  const drawAtEnd = !!o.drawAtEnd;
   const advanced  = !!o.advanced;
   const rng       = o.rng || Math.random;
   const variants = {
@@ -389,13 +394,22 @@ function createGame(playerNames, opts) {
     turn: 1,           // global turn counter (increments every player change)
     round: 1,          // increments when player index wraps to 0
     phase: 'synthesize',  // 'synthesize' | 'decays' | 'between' | 'over'
-    config: { drawSize, startHand, maxRounds, handLimit, exchange, advanced, variants },
+    config: { drawSize, startHand, maxRounds, handLimit, exchange, drawAtEnd, advanced, variants },
     lastDecayEvents: [],
     lastSynthEvents: [],
     lastPenalty: null,
   };
-  // Initial draw for the first player.
-  drawForCurrentPlayer(state);
+  // Initial draw. In draw-at-end mode deal startHand to ALL players up front
+  // so each can see/plan their hand while waiting for their first turn.
+  if (drawAtEnd) {
+    for (let i = 0; i < state.players.length; i++) {
+      state.currentPlayer = i;
+      drawForCurrentPlayer(state);
+    }
+    state.currentPlayer = 0;
+  } else {
+    drawForCurrentPlayer(state);
+  }
   return state;
 }
 
@@ -630,6 +644,9 @@ function exchangeCards(state, cardIds) {
 function endSynthesis(state) {
   if (state.phase !== 'synthesize') return { ok: false, error: 'Not in synthesize phase.' };
   processDecays(state);
+  // Draw-at-end-of-turn: pull the ending player's next-turn hand now so they
+  // can plan (and apply the hand limit) before passing.
+  if (state.config.drawAtEnd) drawForCurrentPlayer(state);
   state.phase = 'decays';
   return { ok: true, events: state.lastDecayEvents };
 }
@@ -745,7 +762,9 @@ function endTurn(state) {
 
 function beginTurn(state) {
   if (state.phase !== 'between') return { ok: false, error: 'Not between turns.' };
-  drawForCurrentPlayer(state);
+  // In draw-at-end mode the player's hand was already drawn at the end of their
+  // previous turn (or at game start for round 1) — don't draw again.
+  if (!state.config.drawAtEnd) drawForCurrentPlayer(state);
   state.phase = 'synthesize';
   state.lastDecayEvents = [];
   state.lastSynthEvents = [];

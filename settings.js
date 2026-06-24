@@ -38,7 +38,7 @@ function load() {
     // Guard against tampered/old values that would brick the UI.
     if (!VALID_THEMES.includes(merged.theme)) merged.theme = DEFAULTS.theme;
     if (!Array.isArray(merged.lastNames)) merged.lastNames = [];
-    merged.defaultPlayerCount = clampNum(merged.defaultPlayerCount, 2, 6, DEFAULTS.defaultPlayerCount);
+    merged.defaultPlayerCount = clampNum(merged.defaultPlayerCount, 1, 6, DEFAULTS.defaultPlayerCount);
     merged.defaultStartHand   = clampNum(merged.defaultStartHand, 1, 20, DEFAULTS.defaultStartHand);
     merged.defaultDrawSize    = clampNum(merged.defaultDrawSize, 1, 10, DEFAULTS.defaultDrawSize);
     merged.defaultMaxRounds   = clampNum(merged.defaultMaxRounds, 3, 20, DEFAULTS.defaultMaxRounds);

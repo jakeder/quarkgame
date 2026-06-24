@@ -45,14 +45,19 @@
         <h3>Default amounts for new games</h3>
         <p class="settings-hint muted">These pre-fill the setup screen at page load. You can still tweak per-game.</p>
         <div class="settings-grid">
-          <label>Players <input type="number" id="setting-default-players" min="2" max="6" /></label>
+          <label>Players <input type="number" id="setting-default-players" min="1" max="6" /></label>
           <label>Starting hand <input type="number" id="setting-default-start" min="1" max="20" /></label>
           <label>Draw per turn <input type="number" id="setting-default-draw" min="1" max="10" /></label>
           <label>Rounds <input type="number" id="setting-default-rounds" min="3" max="20" /></label>
         </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>Hand limit</h3>
+        <p class="settings-hint muted">Cap each player's hand size. Players must discard down to it before passing.</p>
         <label class="settings-row inline-toggle">
           <input type="checkbox" id="setting-default-handlimit-on" />
-          <span>Hand limit by default</span>
+          <span>Enable hand limit</span>
           <input type="number" id="setting-default-handlimit" min="1" max="20" disabled />
         </label>
       </section>
@@ -93,6 +98,7 @@
         <div class="setup-row">
           <label for="player-count">Players</label>
           <select id="player-count">
+            <option value="1">1 (solo · high-score mode)</option>
             <option value="2">2</option>
             <option value="3">3</option>
             <option value="4" selected>4</option>
@@ -111,14 +117,6 @@
         <div class="setup-row">
           <label for="max-rounds">Rounds</label>
           <input id="max-rounds" type="number" min="3" max="20" value="10" />
-        </div>
-        <div class="setup-row">
-          <label for="limit-hand">Hand limit</label>
-          <span class="inline-toggle">
-            <input type="checkbox" id="limit-hand" />
-            <input id="hand-limit" type="number" min="1" max="20" value="7" disabled />
-            <small class="muted">discard down to this at end of turn</small>
-          </span>
         </div>
         <fieldset class="variants">
           <legend>Variants <small class="muted">(optional)</small></legend>
@@ -174,14 +172,6 @@
           <div class="setup-row">
             <label for="online-max-rounds">Rounds</label>
             <input id="online-max-rounds" type="number" min="3" max="20" value="10" />
-          </div>
-          <div class="setup-row">
-            <label for="online-limit-hand">Hand limit</label>
-            <span class="inline-toggle">
-              <input type="checkbox" id="online-limit-hand" />
-              <input id="online-hand-limit" type="number" min="1" max="20" value="7" disabled />
-              <small class="muted">discard down to this at end of turn</small>
-            </span>
           </div>
           <fieldset class="variants">
             <legend>Variants <small class="muted">(optional)</small></legend>

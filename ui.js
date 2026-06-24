@@ -11,9 +11,8 @@
   document.getElementById('pass-continue').addEventListener('click', onPassContinue);
   document.getElementById('new-game').addEventListener('click', () => location.reload());
 
-  // Hand-limit checkbox enables/disables its number input (local + online).
-  bindLimitToggle('limit-hand', 'hand-limit');
-  bindLimitToggle('online-limit-hand', 'online-hand-limit');
+  // Hand limit is configured in the gear modal (persistent). Its enable +
+  // value live in window.Settings as defaultHandLimitOn / defaultHandLimit.
 
   // Advanced toggle gates the Advanced-only variants and the world picker.
   bindAdvancedToggle({
@@ -69,16 +68,11 @@
       }
     }
   }
-  function bindLimitToggle(cbId, numId) {
-    const cb = document.getElementById(cbId);
-    const num = document.getElementById(numId);
-    if (!cb || !num) return;
-    cb.addEventListener('change', () => { num.disabled = !cb.checked; });
-  }
-  function readHandLimit(cbId, numId) {
-    const cb = document.getElementById(cbId);
-    if (!cb || !cb.checked) return null;
-    return clampInt(document.getElementById(numId).value, 1, 20, 7);
+  // Hand limit comes from settings (modal-only).
+  function handLimitFromSettings() {
+    const S = window.Settings;
+    if (!S || !S.get('defaultHandLimitOn')) return null;
+    return clampInt(S.get('defaultHandLimit'), 1, 20, 7);
   }
 
   // Exchange mode is configured in the gear modal (persistent setting), not
@@ -114,7 +108,7 @@
 
   // Numeric/checkbox inputs in the settings modal (defaults section + exchange).
   const SETTING_NUM_FIELDS = [
-    ['setting-default-players',  'defaultPlayerCount', 2, 6],
+    ['setting-default-players',  'defaultPlayerCount', 1, 6],
     ['setting-default-start',    'defaultStartHand',   1, 20],
     ['setting-default-draw',     'defaultDrawSize',    1, 10],
     ['setting-default-rounds',   'defaultMaxRounds',   3, 20],
@@ -225,23 +219,13 @@
     if (!S) return;
     const c = S.getAll();
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    const setChk = (id, v) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.checked = !!v;
-      el.dispatchEvent(new Event('change')); // re-enable dependent number inputs
-    };
     setVal('player-count', c.defaultPlayerCount);
     setVal('start-hand',   c.defaultStartHand);
     setVal('draw-size',    c.defaultDrawSize);
     setVal('max-rounds',   c.defaultMaxRounds);
-    setVal('hand-limit',   c.defaultHandLimit);
-    setChk('limit-hand',   c.defaultHandLimitOn);
     setVal('online-start-hand', c.defaultStartHand);
     setVal('online-draw-size',  c.defaultDrawSize);
     setVal('online-max-rounds', c.defaultMaxRounds);
-    setVal('online-hand-limit', c.defaultHandLimit);
-    setChk('online-limit-hand', c.defaultHandLimitOn);
   }
 
   renderNameInputs();
@@ -302,10 +286,11 @@
       antiHero:    document.getElementById('online-variant-antihero').checked,
       nothingLeft: document.getElementById('online-variant-nothingleft').checked,
     };
-    const handLimit = readHandLimit('online-limit-hand', 'online-hand-limit');
+    const handLimit = handLimitFromSettings();
     const startHand = clampInt(document.getElementById('online-start-hand').value, 1, 20, drawSize);
     const exchange = exchangeFromSettings();
-    const hostConfig = { drawSize, startHand, maxRounds, handLimit, exchange, advanced, variants };
+    // Online: draw-at-end-of-turn so waiting players see/plan their next hand.
+    const hostConfig = { drawSize, startHand, maxRounds, handLimit, exchange, drawAtEnd: true, advanced, variants };
     const mp = await window.MultiplayerReady;
     if (!mp.ready) return showOnlineError(mp.error);
     try {
@@ -521,7 +506,7 @@
       antiHero:    document.getElementById('variant-antihero').checked,
       nothingLeft: document.getElementById('variant-nothingleft').checked,
     };
-    const handLimit = readHandLimit('limit-hand', 'hand-limit');
+    const handLimit = handLimitFromSettings();
     const worlds = (advanced && variants.antiHero)
       ? Array.from({ length: count }, (_, i) => (document.getElementById('world-' + i) || { value: 'actual' }).value)
       : null;
@@ -763,7 +748,8 @@
     if (!state) return;
     const gameOver = state.phase === 'over';
     // Online mode skips the pass screen — there's no device handoff.
-    const passNeeded = !online && !passScreenAcknowledged && state.phase === 'between';
+    // No pass screen online (no handoff) or in solo (only one player).
+    const passNeeded = !online && state.players.length > 1 && !passScreenAcknowledged && state.phase === 'between';
     document.getElementById('game').hidden       = gameOver || passNeeded;
     document.getElementById('pass-screen').hidden = !passNeeded;
     document.getElementById('game-over').hidden  = !gameOver;
@@ -1201,12 +1187,13 @@
     if (!isMyTurn()) return;
     const r = Q.endTurn(state);
     if (!r.ok) return;
-    if (online) {
-      // No device handoff online — fold the next player's beginTurn into the
-      // same write so the next client wakes up with cards already in hand.
+    const solo = state.players.length === 1;
+    if (online || solo) {
+      // No device handoff in online or solo play — fold beginTurn into the
+      // same step so the next active turn starts immediately.
       if (state.phase === 'between') Q.beginTurn(state);
       clearSelections();
-      await syncState();
+      if (online) await syncState(); else render();
     } else {
       passScreenAcknowledged = (state.phase === 'over'); // skip pass screen when game ends
       clearSelections();
@@ -1248,10 +1235,13 @@
 
   function renderGameOver() {
     const ws = Q.winners(state);
+    const solo = state.players.length === 1;
     const metric = variantsOn().heliumPrize ? 'Helium Prize' : 'energy';
-    const winText = ws.length === 1
-      ? ws[0].name + ' wins with ' + winnerSummary(ws[0]) + '!'
-      : 'Tie between ' + ws.map(w => w.name).join(', ') + ' (' + winnerSummary(ws[0]) + ').';
+    const winText = solo
+      ? 'Final score: ' + winnerSummary(state.players[0])
+      : (ws.length === 1
+          ? ws[0].name + ' wins with ' + winnerSummary(ws[0]) + '!'
+          : 'Tie between ' + ws.map(w => w.name).join(', ') + ' (' + winnerSummary(ws[0]) + ').');
     document.getElementById('winner-text').textContent =
       winText + (variantsOn().heliumPrize ? '' : '');
     const totalAnn = state.players.reduce((s, p) => s + (p.annihilations || 0), 0);
